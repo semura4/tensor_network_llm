@@ -59,7 +59,7 @@ class TestTemplates(unittest.TestCase):
 
     def test_two_qubit_counts(self):
         self.assertEqual(len(two_qubit_template("cx")), 34)
-        self.assertEqual(len(two_qubit_template("swap")), 7)
+        self.assertEqual(len(two_qubit_template("swap")), 27)
         self.assertEqual(len(two_qubit_template("cxswap")), 13)
 
 

@@ -111,6 +111,14 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
         self.assertGreater(r["fidelity"], 0.9999)
         self.assertLess(r["leakage"], 1e-6)
 
+    def test_validated_swap_template(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates, simulate
+        pulses, _ = synthesize(parse_circuit("qubits 2\nswap 0 1\n"))
+        r = simulate(pulses, 2, target=gates.SWAP)
+        self.assertGreater(r["fidelity"], 0.9999)
+        self.assertLess(r["leakage"], 1e-6)
+
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestLandscape(unittest.TestCase):

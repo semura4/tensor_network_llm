@@ -11,11 +11,13 @@ Provenance of each template
   against the physics simulator (``eo_pulse_ir.sim``) to average gate fidelity
   0.99999999 with leakage 7.7e-9 in the 3-dot S=1/2 encoding (see
   ``_CX_VALIDATED`` and ``scripts/eo_optimize_2q.py``).
+- **SWAP** is *numerically validated*: F = 0.99999999, leakage 3.2e-10 vs SWAP,
+  27 pulses (encoded SWAP is cheaper than CNOT here); see ``_SWAP_VALIDATED``.
 - **Single-qubit gates** use the minimal exchange-generator counts the simulator
   confirms (1 pulse for Z-axis gates; 3 alternating pulses span the rest).
-- **SWAP / CXSWAP** remain *representative templates*: their pulse counts and edge
-  structure follow the published exchange-only constructions, but the individual
-  areas are placeholders, not yet optimised to a target unitary.
+- **CXSWAP** remains a *representative template*: its pulse count and edge
+  structure follow the published construction, but the individual areas are
+  placeholders, not yet optimised to a target unitary.
 
 This module is also the seam where external data enters: feed an optimiser /
 `eoqrid` pulse list through :func:`eo_pulse_ir.schedule.pulses_from_records` to
@@ -118,22 +120,47 @@ def _cx_template() -> List[PulseSpec]:
     return list(_CX_VALIDATED)
 
 
-def _swap_template() -> List[PulseSpec]:
-    """Representative encoded-SWAP between two adjacent logical qubits.
+# Validated leakage-free logical SWAP (eo_pulse_ir.sim, analytic-gradient search,
+# KAK-style ansatz: 3 boundary exchanges + full single-qubit dressing).  Average
+# gate fidelity F = 0.99999999, leakage 3.2e-10 vs SWAP.  Encoded SWAP is cheaper
+# than CNOT here (N=27 suffices).  Reproduce with scripts/eo_optimize_2q.py.
+_SWAP_VALIDATED: List[PulseSpec] = [
+    ("ctrl_high", 3.8570295936),
+    ("ctrl_low", 2.6890492883),
+    ("ctrl_high", 5.8889853995),
+    ("tgt_low", 1.7720617556),
+    ("tgt_high", 4.4910341855),
+    ("tgt_low", 5.7880600812),
+    ("inter", 3.1474925139),
+    ("ctrl_high", 3.6800539696),
+    ("ctrl_low", 6.2831740320),
+    ("ctrl_high", 5.7506141528),
+    ("tgt_low", 6.2831846681),
+    ("tgt_high", 2.6962206619),
+    ("tgt_low", 3.1474903177),
+    ("inter", 3.1474890567),
+    ("ctrl_high", 0.0605870244),
+    ("ctrl_low", 3.1475056239),
+    ("ctrl_high", 3.1474902565),
+    ("tgt_low", 3.3260600289),
+    ("tgt_high", 3.1474866587),
+    ("tgt_low", 3.1475016875),
+    ("inter", 3.1474873212),
+    ("ctrl_high", 4.9070636403),
+    ("ctrl_low", 4.0696020731),
+    ("ctrl_high", 5.6751692226),
+    ("tgt_low", 1.4707855251),
+    ("tgt_high", 2.5480725973),
+    ("tgt_low", 2.4149979136),
+]
 
-    Encoded SWAP is comparatively cheap and high-fidelity (it permutes the dot
-    contents without leaving the logical subspace), so we model it with a short
-    sequence dominated by full SWAPs on the bridging edges.
+
+def _swap_template() -> List[PulseSpec]:
+    """Validated logical SWAP (27 pulses, F = 0.99999999).
+
+    Returns the simulator-validated (role, area) sequence in ``_SWAP_VALIDATED``.
     """
-    return [
-        ("ctrl_high", FULL_SWAP),
-        ("inter", FULL_SWAP),
-        ("tgt_low", FULL_SWAP),
-        ("inter", FULL_SWAP),
-        ("ctrl_high", FULL_SWAP),
-        ("tgt_low", FULL_SWAP),
-        ("inter", FULL_SWAP),
-    ]
+    return list(_SWAP_VALIDATED)
 
 
 def _cxswap_template() -> List[PulseSpec]:
@@ -163,6 +190,6 @@ TEMPLATE_INFO = {
     "1q-aligned": {"pulses": 1, "source": "template (axis-aligned exchange generator)"},
     "1q-generic": {"pulses": 3, "source": "template (alternating EO generators)"},
     "cx": {"pulses": 34, "source": "optimized (analytic-gradient, F=0.99999999, leak=7.7e-9)"},
-    "swap": {"pulses": 7, "source": "template (encoded-SWAP, representative)"},
+    "swap": {"pulses": 27, "source": "optimized (analytic-gradient, F=0.99999999, leak=3.2e-10)"},
     "cxswap": {"pulses": 13, "source": "template (combined CXSWAP, representative)"},
 }
