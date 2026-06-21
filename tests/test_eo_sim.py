@@ -146,6 +146,51 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestQuaternion(unittest.TestCase):
+    def test_axis_geometry(self):
+        from eo_pulse_ir.sim import quaternion as q
+        self.assertAlmostEqual(float(q.N1 @ q.N2), -0.5, places=6)  # 120 degrees
+
+    def test_axis_angle_to_su2(self):
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim import quaternion as q
+        from eo_pulse_ir.sim.fidelity import average_gate_fidelity
+        U = q.to_su2(q.from_axis_angle([0, 0, 1], 0.7))
+        self.assertGreater(average_gate_fidelity(U, gates.rz(0.7)), 0.99999)
+
+    def test_rotate_bloch(self):
+        from eo_pulse_ir.sim import quaternion as q
+        v = q.rotate_bloch(q.from_axis_angle([0, 1, 0], np.pi / 2), np.array([0, 0, 1.0]))
+        self.assertTrue(np.allclose(v, [1, 0, 0], atol=1e-9))
+
+    def test_compile_unitary_exact(self):
+        from eo_pulse_ir.sim import quaternion as q
+        from eo_pulse_ir.sim.fidelity import average_gate_fidelity
+        from eo_pulse_ir.sim.simulator import logical_block
+        role = {"intra_low": (0, 1), "intra_high": (1, 2)}
+        rng = np.random.default_rng(1)
+        worst = 1.0
+        for _ in range(20):
+            A = rng.normal(size=(2, 2)) + 1j * rng.normal(size=(2, 2))
+            U, _ = np.linalg.qr(A)
+            seq = q.compile_unitary(U)
+            M = logical_block([(role[r], a) for r, a in seq], 1)
+            worst = min(worst, average_gate_fidelity(M, U))
+        self.assertGreater(worst, 0.99999)
+
+    def test_u_gate_front_end(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import simulate
+        from eo_pulse_ir.sim import quaternion as q
+        c = parse_circuit("qubits 1\nu 0 0.5 0.6 0.7\n")
+        Rz = lambda a: np.array([[np.exp(-1j*a/2), 0], [0, np.exp(1j*a/2)]])
+        Ry = lambda a: np.array([[np.cos(a/2), -np.sin(a/2)], [np.sin(a/2), np.cos(a/2)]])
+        U = Rz(0.6) @ Ry(0.5) @ Rz(0.7)
+        pulses, _ = synthesize(c)
+        self.assertGreater(simulate(pulses, 1, target=U)["fidelity"], 0.99999)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestControlLie(unittest.TestCase):
     def test_lie_closure_su2(self):
         from eo_pulse_ir.sim.lie import lie_closure

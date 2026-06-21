@@ -73,7 +73,17 @@ def _rz_area(theta: float) -> float:
     return (-theta) % (2 * PI)
 
 
-def one_qubit_template(name: str, param: float | None = None) -> List[PulseSpec]:
+def _ang(param, i: int = 0):
+    """Read parameter ``i`` whether ``param`` is a scalar or a sequence."""
+    if param is None:
+        return None
+    try:
+        return param[i]
+    except (TypeError, IndexError):
+        return param
+
+
+def one_qubit_template(name: str, param=None) -> List[PulseSpec]:
     """Expand a single-qubit logical gate into intra-triple exchange pulses.
 
     All outputs are simulator-validated (F = 1, leakage-free):
@@ -82,11 +92,14 @@ def one_qubit_template(name: str, param: float | None = None) -> List[PulseSpec]
       - y: validated 4-pulse sequence (3 pulses cannot reach Y; the two EO
         generators are ~120 degrees apart);
       - rx/ry: composed exactly from the validated H and exact Rz
-        (Rx = H Rz H,  Ry = S Rx Sdg).
+        (Rx = H Rz H,  Ry = S Rx Sdg);
+      - u(theta,phi,lam): arbitrary single-qubit gate = Rz(phi) Ry(theta) Rz(lam).
+
+    ``param`` may be a scalar (rz/rx/ry) or a sequence (u takes three angles).
     """
     name = name.lower()
     if name in ALIGNED_1Q:
-        theta = param if name == "rz" else _ALIGNED_ANGLE[name]
+        theta = _ang(param) if name == "rz" else _ALIGNED_ANGLE[name]
         return [("intra_low", _rz_area(theta))]
     if name == "h":
         return list(_H_1Q)
@@ -96,14 +109,22 @@ def one_qubit_template(name: str, param: float | None = None) -> List[PulseSpec]
         return list(_Y_1Q)
     if name == "rx":
         # Rx(theta) = H Rz(theta) H
-        return list(_H_1Q) + [("intra_low", _rz_area(param))] + list(_H_1Q)
+        return list(_H_1Q) + [("intra_low", _rz_area(_ang(param)))] + list(_H_1Q)
     if name == "ry":
-        # Ry(theta) = S Rx(theta) Sdg ; application order: Sdg, H, Rz, H, S
-        sdg = [("intra_low", _rz_area(-PI / 2))]
-        s = [("intra_low", _rz_area(PI / 2))]
-        return (sdg + list(_H_1Q) + [("intra_low", _rz_area(param))]
-                + list(_H_1Q) + s)
+        return _ry_pulses(_ang(param))
+    if name == "u":
+        # u(theta,phi,lam) = Rz(phi) Ry(theta) Rz(lam); apply Rz(lam) first
+        theta, phi, lam = _ang(param, 0), _ang(param, 1), _ang(param, 2)
+        return ([("intra_low", _rz_area(lam))] + _ry_pulses(theta)
+                + [("intra_low", _rz_area(phi))])
     raise ValueError(f"no 1-qubit template for {name!r}")
+
+
+def _ry_pulses(theta: float) -> List[PulseSpec]:
+    # Ry(theta) = S Rx(theta) Sdg ; application order: Sdg, H, Rz, H, S
+    sdg = [("intra_low", _rz_area(-PI / 2))]
+    s = [("intra_low", _rz_area(PI / 2))]
+    return sdg + list(_H_1Q) + [("intra_low", _rz_area(theta))] + list(_H_1Q) + s
 
 
 # Validated leakage-free CNOT, optimised against the physics simulator

@@ -16,11 +16,13 @@ from typing import List, Sequence, Tuple
 # generator in the standard 3-dot encoding (cheap: one exchange pulse).
 ALIGNED_1Q = {"z", "s", "sdg", "t", "tdg", "rz"}
 # Single-qubit gates that need an alternating-generator sequence.
-GENERIC_1Q = {"x", "y", "h", "rx", "ry"}
+GENERIC_1Q = {"x", "y", "h", "rx", "ry", "u"}
 ONE_Q_GATES = ALIGNED_1Q | GENERIC_1Q
 # Two-qubit gates we know how to synthesise into exchange pulses.
 TWO_Q_GATES = {"cx", "cnot", "swap", "cxswap"}
-PARAM_GATES = {"rz", "rx", "ry"}
+PARAM_GATES = {"rz", "rx", "ry"}   # one angle each
+# arbitrary single-qubit gate u(theta, phi, lam): three angles
+U_GATE = "u"
 
 
 @dataclass
@@ -87,6 +89,8 @@ def _validate_gate(g: Gate, num_qubits: int) -> None:
         raise ValueError(f"two-qubit gate {g.name!r} needs distinct qubits: {g.qubits}")
     if g.name in PARAM_GATES and len(g.params) != 1:
         raise ValueError(f"gate {g.name!r} expects one angle parameter")
+    if g.name == U_GATE and len(g.params) != 3:
+        raise ValueError("gate 'u' expects three angle parameters (theta, phi, lam)")
 
 
 def _tokenize_line(line: str) -> str:
@@ -156,6 +160,10 @@ def parse_circuit(text: str) -> Circuit:
         if name in PARAM_GATES and not params:
             # QASM-lite parametrised form: 'rz 0 0.7853' -> last token is the angle
             params = [float(toks.pop())]
+        elif name == U_GATE and not params:
+            # QASM-lite form: 'u 0 theta phi lam' -> first token qubit, then 3 angles
+            params = [float(t) for t in toks[1:4]]
+            toks = toks[:1]
 
         qubits = [_parse_qubit_token(t) for t in toks]
         gates.append(Gate(name, tuple(qubits), tuple(params)))

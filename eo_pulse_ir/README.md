@@ -249,3 +249,18 @@ H reproduces as a quaternion product to ~1e-16).
 python scripts/eo_control_analysis.py -o out/control
 ```
 
+### Quaternion single-qubit layer
+
+`sim/quaternion.py` gives the single-qubit (DFS) layer its natural representation:
+`SU(2) ≅` unit quaternions. The two native exchange axes, measured from the
+simulator, are `intra_low n1 = (0,0,-1)` and `intra_high n2 = (√3/2,0,1/2)` —
+exactly **120° apart**, with rotation angle = pulse area. Any single-qubit gate
+compiles **analytically and exactly** (`compile_unitary`, ZXZ from native Rz +
+validated H), exposed in the front-end as the OpenQASM `u(θ,φ,λ)` gate (verified
+F=1 over 200 random gates). `scripts/eo_quaternion.py` draws the piecewise-constant
+Bloch trajectory computed purely by quaternion rotations.
+
+```bash
+python scripts/eo_quaternion.py -o out/quaternion
+```
+

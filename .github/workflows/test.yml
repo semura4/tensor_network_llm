@@ -50,3 +50,5 @@ jobs:
         run: python scripts/eo_gradient_study.py --res 8 -o out/gradient
       - name: Smoke-test the control / controllability analysis
         run: python scripts/eo_control_analysis.py -o out/control
+      - name: Smoke-test the quaternion single-qubit layer
+        run: python scripts/eo_quaternion.py -o out/quaternion

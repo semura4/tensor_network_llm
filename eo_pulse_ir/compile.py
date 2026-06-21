@@ -71,7 +71,7 @@ def synthesize(circuit: Circuit) -> Tuple[List[Pulse], LinearTopology]:
     for g in circuit.gates:
         if not g.is_two_qubit:
             q = g.qubits[0]
-            param = g.params[0] if g.params else None
+            param = g.params if g.params else None
             for role, area in one_qubit_template(g.name, param):
                 edge = _resolve_role(role, topo, topo.position_of[q], topo.position_of[q], q)
                 pulses.append(Pulse(edge=edge, area=area, gate=g.name,
