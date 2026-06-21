@@ -67,6 +67,58 @@ def nelder_mead(f: Callable[[np.ndarray], float], x0: np.ndarray,
     return simplex[order[0]], fvals[order[0]]
 
 
+def fidelity_and_grad(areas: Sequence[float], edges: Sequence[Tuple[int, int]],
+                      num_qubits: int, target: np.ndarray):
+    """Average gate fidelity and its exact gradient w.r.t. each pulse area.
+
+    Uses the adjoint (back-propagation) method: one forward sweep of the logical
+    columns and one backward sweep, instead of 2N finite-difference evaluations.
+    """
+    from .encoding import DOTS_PER_QUBIT, logical_basis
+    from .operators import apply_pulse
+
+    n = num_qubits * DOTS_PER_QUBIT
+    d = target.shape[0]
+    L = logical_basis(num_qubits).astype(complex)
+    N = len(areas)
+
+    # cache the swap permutation per edge (for H = (SWAP - I/2)/2)
+    perms = {}
+    for (i, j) in set(edges):
+        from .operators import _swap_index
+        perms[(i, j)] = np.array([_swap_index(idx, n, i, j) for idx in range(1 << n)])
+
+    # forward: P[k] = U_{k-1}...U_0 L  (P[0] = L, P[N] = U L)
+    P = [L]
+    for k in range(N):
+        i, j = edges[k]
+        P.append(apply_pulse(P[-1], n, i, j, areas[k]))
+
+    M = L.conj().T @ P[N]
+    c = np.trace(target.conj().T @ M)
+    s = np.real(np.trace(M.conj().T @ M))
+    F = float((np.abs(c) ** 2 + s) / (d * (d + 1)))
+    G = c * target + M                      # dF = 2/(d(d+1)) Re Tr(G^dagger dM)
+    Gh = G.conj().T
+
+    # backward costates: Phi[k] = (U_{N-1}...U_{k+1})^dagger L
+    Phi = [None] * N
+    if N > 0:
+        Phi[N - 1] = L
+        for k in range(N - 2, -1, -1):
+            i, j = edges[k + 1]
+            Phi[k] = apply_pulse(Phi[k + 1], n, i, j, -areas[k + 1])
+
+    grad = np.zeros(N)
+    coef = 2.0 / (d * (d + 1))
+    for k in range(N):
+        i, j = edges[k]
+        Yk = P[k + 1] @ Gh                  # (2^n, d)
+        HY = (-0.5j) * (Yk[perms[(i, j)]] - 0.5 * Yk)   # (-i H_k) Y_k
+        grad[k] = coef * float(np.real(np.sum(np.conj(Phi[k]) * HY)))
+    return F, grad
+
+
 def _fd_gradient(f: Callable[[np.ndarray], float], x: np.ndarray, eps: float = 1e-6
                  ) -> np.ndarray:
     """Central finite-difference gradient (cheap: tiny Hilbert space)."""
