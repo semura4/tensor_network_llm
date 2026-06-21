@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  test:
+  core:
+    name: core IR (standard library only)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -17,10 +18,29 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Run EO Pulse Control IR test suite (standard library only)
+      - name: Run core IR test suite (no third-party deps)
         run: python -m unittest tests.test_eo_pulse_ir -v
       - name: Smoke-test the CLI on the example circuits
         run: |
           python -m eo_pulse_ir.cli examples/bell.qasm -o out/bell
           python -m eo_pulse_ir.cli examples/ghz.qasm -o out/ghz
           python -m eo_pulse_ir.cli --pulses examples/external_pulses.json --num-dots 6 -o out/ext
+
+  simulator:
+    name: physics simulator (numpy)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install numpy
+        run: pip install numpy
+      - name: Run simulator test suite
+        run: python -m unittest tests.test_eo_sim -v
+      - name: Smoke-test the validation + landscape script
+        run: python scripts/eo_landscape.py --res 10 -o out/landscape

@@ -128,11 +128,18 @@ dependency-free intermediate representation and control-cost evaluator for
 **exchange-only (EO) spin qubits**. It compiles a logical circuit (QASM-lite /
 OpenQASM-2 subset) into scheduled exchange pulses and emits an HRL-style
 cryo-CMOS instruction/pattern memory image, a pulse-timeline visualisation, and
-a control-cost report.
+a control-cost report. An optional numpy-based physics layer (`eo_pulse_ir/sim/`)
+adds a real Heisenberg-exchange simulator with subspace fidelity/leakage and a
+pulse-parameter landscape explorer.
 
 ```bash
 python -m eo_pulse_ir.cli examples/bell.qasm -o out/bell
 python -m unittest tests.test_eo_pulse_ir
+
+# optional physics simulator + landscape
+pip install -r requirements-sim.txt
+python scripts/eo_landscape.py --res 28 -o out/landscape
+python -m unittest tests.test_eo_sim
 ```
 
 See [`eo_pulse_ir/README.md`](eo_pulse_ir/README.md) for the model and scope.

@@ -1,0 +1,4 @@
+# Optional dependency for the EO physics simulator (eo_pulse_ir/sim/).
+# The core eo_pulse_ir IR needs no third-party packages; only the simulator,
+# optimizer and landscape layers require numpy.
+numpy>=1.21

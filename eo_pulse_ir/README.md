@@ -112,5 +112,39 @@ for whatever pulse list it is given.
 | `report.py` | CSV writers + Markdown cost report |
 | `pipeline.py` | end-to-end glue + artefact emission |
 | `cli.py` | `python -m eo_pulse_ir.cli` |
+| `sim/` | **optional** physics simulator (requires numpy) — see below |
 
 Run the tests with `python -m unittest tests.test_eo_pulse_ir`.
+
+## Physics simulator (`sim/`, optional, needs numpy)
+
+The core IR's `estimated_leakage_risk` / `noise_sensitivity` are heuristics. The
+`sim/` subpackage replaces them with **real numbers** from a small dense
+Heisenberg-exchange simulation, and maps the pulse-parameter landscape.
+
+- **Model.** `n` spin-½ dots, exchange `H = Σ J_ij S_i·S_j`. A pulse of area `A`
+  on edge `(i,j)` has the exact propagator `e^{iA/4}(cos(A/2)I − i sin(A/2)·SWAP_ij)`
+  (full SWAP at `A=π`). The logical qubit is the 3-dot `S=1/2` doublet; leakage is
+  population leaving `S=1/2 ⊗ S=1/2`.
+- **Scoring.** Subspace-restricted average gate fidelity
+  `F = (|Tr(V†M)|² + Tr(M†M)) / (d(d+1))` and leakage `L = 1 − Tr(M†M)/d`, where
+  `M = L†UL` is the logical block. It consumes the **same `Pulse` objects** the IR
+  produces, so synthesised or optimiser/eoqrid pulses get a real fidelity.
+
+```bash
+pip install -r requirements-sim.txt
+python scripts/eo_landscape.py --res 28 -o out/landscape
+python -m unittest tests.test_eo_sim
+```
+
+`scripts/eo_landscape.py` validates the single-qubit templates and sweeps a
+two-qubit leakage/robustness landscape. Findings it reproduces:
+
+- `intra_low(0,1)` of area `θ` realises `Rz(−θ)` exactly, leakage-free.
+- **X and H synthesise to fidelity 1 with 3 alternating exchange pulses; Y cannot
+  (F≈0.833) and needs 4** — the two EO generators are ~120° apart. The optimiser
+  (`sim/optimize.py`) returns the validated areas, replacing the placeholders.
+- Single-qubit operations are **leakage-free** (exchange conserves `S²` in a triple);
+  leakage is driven **only by inter-qubit (boundary) exchange**, with
+  **noise-robust plateaus** at boundary area `0, π, 2π` (stationary points of `L`).
+
