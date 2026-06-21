@@ -146,6 +146,43 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestControlLie(unittest.TestCase):
+    def test_lie_closure_su2(self):
+        from eo_pulse_ir.sim.lie import lie_closure
+        X = np.array([[0, 1], [1, 0]], complex)
+        Y = np.array([[0, -1j], [1j, 0]], complex)
+        dim, _ = lie_closure([1j * X, 1j * Y])
+        self.assertEqual(dim, 3)   # iX, iY generate su(2)
+
+    def test_single_qubit_exchange_is_dfs(self):
+        from eo_pulse_ir.sim.control import EOControlSystem
+        s = EOControlSystem(1)
+        self.assertEqual(s.lie_dimension(sector_down=1), 4)   # su(2) (+) u(1) block
+        self.assertLess(s.leakage_coupling(1), 1e-9)          # no logical<->leakage
+
+    def test_gradient_enlarges_algebra_and_couples_leakage(self):
+        from eo_pulse_ir.sim.control import EOControlSystem
+        s = EOControlSystem(1, gradient=1.0)
+        self.assertEqual(s.lie_dimension(sector_down=1), 8)   # full su(3)
+        self.assertGreater(s.leakage_coupling(1), 0.1)
+
+    def test_two_qubit_exchange_couples_leakage(self):
+        from eo_pulse_ir.sim.control import EOControlSystem
+        s = EOControlSystem(2)
+        self.assertGreater(s.leakage_coupling(2), 0.1)        # boundary leaks (Q2)
+
+    def test_control_system_reproduces_gate(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.control import EOControlSystem
+        from eo_pulse_ir.sim.fidelity import average_gate_fidelity
+        s = EOControlSystem(2)
+        pulses, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        M = s.logical_block(s.word_from_pulses(pulses))
+        self.assertGreater(average_gate_fidelity(M, gates.CNOT), 0.9999)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestField(unittest.TestCase):
     def _cnot(self):
         from eo_pulse_ir import parse_circuit, synthesize

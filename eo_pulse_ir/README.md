@@ -221,3 +221,31 @@ answers four physics questions:
 python scripts/eo_gradient_study.py --res 24 -o out/gradient
 ```
 
+### Pulse control as a piecewise-constant (switched bilinear) system
+
+EO pulse control is a right-invariant switched bilinear system on SU(2ⁿ):
+`dU/dt = -i(H_drift + J·G_m(t))U`, where the modes `G_e = S_i·S_j` are the
+nearest-neighbour exchange generators, the drift is the Zeeman field, and a
+*control word* (sequence of `(mode, dwell-time)` segments) is exactly a pulse
+list. `sim/control.py` (`EOControlSystem`) and `sim/lie.py` make this first-class
+and compute controllability via the generated Lie algebra.
+`scripts/eo_control_analysis.py` shows:
+
+| system | sector dim | Lie dim | full su(d) | logical↔leakage |
+|---|---|---|---|---|
+| 1 qubit, exchange only | 3 | 4 | 8 | ~0 (DFS) |
+| 1 qubit, exchange + gradient | 3 | 8 | 8 | 0.71 |
+| 2 qubits, exchange only | 15 | 105 | 224 | 0.33 |
+
+This recasts the physics findings as control theory: single-qubit exchange is
+confined to a DFS subalgebra (no leakage), boundary exchange already couples to
+leakage (so gates must refocus it), and a gradient enlarges the algebra to the
+full `su(d)`, breaking the DFS. The single-qubit logical group is `SU(2) ≅` unit
+quaternions — each pulse is a fixed-axis rotation and a sequence is a quaternion
+product (`bloch_trajectory.svg` draws the piecewise-constant path; the validated
+H reproduces as a quaternion product to ~1e-16).
+
+```bash
+python scripts/eo_control_analysis.py -o out/control
+```
+

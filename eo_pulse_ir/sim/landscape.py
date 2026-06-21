@@ -221,6 +221,48 @@ def line_plot_svg(series, title="", xlabel="x", ylabel="y", logx=False, logy=Fal
     return "\n".join(p)
 
 
+def trajectory_svg(xs, ys, switch_idx=(), title="", xlabel="x", ylabel="y",
+                   size=460):
+    """Parametric trajectory (xs, ys) on a unit disc, with switch markers.
+
+    Used to draw the logical Bloch trajectory of a piecewise-constant control:
+    each segment is a geodesic arc about a fixed axis, with kinks at switches.
+    """
+    pad = 48
+    r = (size - 2 * pad) / 2
+    cx = cy = pad + r
+    xs = np.asarray(xs, float); ys = np.asarray(ys, float)
+
+    def px(v):
+        return cx + v * r
+
+    def py(v):
+        return cy - v * r
+
+    p = [f"<svg xmlns='http://www.w3.org/2000/svg' width='{size}' height='{size+24}' "
+         f"font-family='monospace' font-size='11'>",
+         f"<rect width='{size}' height='{size+24}' fill='white'/>",
+         f"<text x='12' y='20' font-size='14' font-weight='bold'>{_esc(title)}</text>",
+         f"<circle cx='{cx}' cy='{cy}' r='{r}' fill='none' stroke='#ccc'/>",
+         f"<line x1='{cx-r}' y1='{cy}' x2='{cx+r}' y2='{cy}' stroke='#eee'/>",
+         f"<line x1='{cx}' y1='{cy-r}' x2='{cx}' y2='{cy+r}' stroke='#eee'/>"]
+    pts = " ".join(f"{px(x):.1f},{py(y):.1f}" for x, y in zip(xs, ys))
+    p.append(f"<polyline points='{pts}' fill='none' stroke='#4C78A8' stroke-width='2'/>")
+    p.append(f"<circle cx='{px(xs[0]):.1f}' cy='{py(ys[0]):.1f}' r='4' fill='#54A24B'/>")
+    p.append(f"<circle cx='{px(xs[-1]):.1f}' cy='{py(ys[-1]):.1f}' r='4' fill='#E45756'/>")
+    for k in switch_idx:
+        if 0 <= k < len(xs):
+            p.append(f"<circle cx='{px(xs[k]):.1f}' cy='{py(ys[k]):.1f}' r='3' "
+                     f"fill='none' stroke='#F58518' stroke-width='2'/>")
+    p.append(f"<text x='{cx+r-4:.0f}' y='{cy-6:.0f}' fill='#888'>{_esc(xlabel)}</text>")
+    p.append(f"<text x='{cx+6:.0f}' y='{cy-r+12:.0f}' fill='#888'>{_esc(ylabel)}</text>")
+    p.append(f"<text x='12' y='{size+18}' fill='#54A24B'>● start</text>")
+    p.append(f"<text x='90' y='{size+18}' fill='#E45756'>● end</text>")
+    p.append(f"<text x='160' y='{size+18}' fill='#F58518'>○ axis switch</text>")
+    p.append("</svg>")
+    return "\n".join(p)
+
+
 def histogram_svg(samples, bins=40, title="", xlabel="fidelity", width=720, height=400):
     """Render a histogram of ``samples`` as SVG."""
     samples = np.asarray(samples, float)
