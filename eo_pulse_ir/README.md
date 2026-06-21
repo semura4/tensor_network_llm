@@ -264,3 +264,23 @@ Bloch trajectory computed purely by quaternion rotations.
 python scripts/eo_quaternion.py -o out/quaternion
 ```
 
+### Tensor-network (MPS/TEBD) scaling
+
+EO dynamics is a stream of nearest-neighbour two-site gates, so an MPS evolves it
+with bond dimension set by entanglement, not by 2ⁿ — bringing this repository's
+original tensor-network theme to spin dynamics. `sim/mps.py` builds the encoded
+register as an MPS (entangled within each triple, product across triples) and
+applies each exchange pulse by TEBD (merge → gate → truncated SVD).
+
+- **Validation:** at full bond dimension the MPS reproduces the dense simulator
+  exactly — CNOT/SWAP/CXSWAP state fidelity 1.0 (discarded weight ~1e-32).
+- **Scaling:** a GHZ-style CNOT chain on 12 logical qubits = 36 dots = dense
+  dimension 2³⁶ (~7×10¹⁰ amplitudes, infeasible to store) evolves in ~0.04 s with
+  max bond dimension **16** (`mps_scaling.svg`: bond dim flat while dense dimension
+  explodes). Bond dimension stays bounded whenever the circuit's entanglement is
+  limited — the regime where tensor networks win.
+
+```bash
+python scripts/eo_mps.py --chi-max 32 --max-qubits 12 -o out/mps
+```
+

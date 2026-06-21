@@ -52,3 +52,5 @@ jobs:
         run: python scripts/eo_control_analysis.py -o out/control
       - name: Smoke-test the quaternion single-qubit layer
         run: python scripts/eo_quaternion.py -o out/quaternion
+      - name: Smoke-test the MPS / tensor-network evolver
+        run: python scripts/eo_mps.py --chi-max 16 --max-qubits 8 -o out/mps

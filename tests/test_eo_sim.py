@@ -146,6 +146,40 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestMPS(unittest.TestCase):
+    def test_init_matches_dense(self):
+        from eo_pulse_ir.sim.encoding import logical_basis
+        from eo_pulse_ir.sim.mps import MPS
+        m = MPS.logical_register([0, 1])
+        dense = logical_basis(2)[:, 1]    # |01_L>
+        self.assertTrue(np.allclose(m.to_dense(), dense, atol=1e-10))
+
+    def test_mps_matches_dense_cnot(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim.encoding import logical_basis
+        from eo_pulse_ir.sim.mps import MPS, evolve_pulses
+        from eo_pulse_ir.sim.operators import apply_pulse
+        pulses, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        psi = logical_basis(2)[:, 0].astype(complex)
+        for x in pulses:
+            psi = apply_pulse(psi, 6, x.edge[0], x.edge[1], x.area)
+        mE, chi, disc = evolve_pulses(MPS.logical_register([0, 0]), pulses, chi_max=64)
+        fid = abs(np.vdot(psi, mE.to_dense())) ** 2 / (
+            np.vdot(psi, psi).real * mE.overlap(mE).real)
+        self.assertGreater(fid, 1 - 1e-9)
+
+    def test_scaling_bounded_bond(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim.mps import MPS, evolve_pulses
+        circ = "qubits 6\nh 0\n" + "".join(f"cx {i} {i+1}\n" for i in range(5))
+        pulses, _ = synthesize(parse_circuit(circ))
+        _, chi, disc = evolve_pulses(MPS.logical_register([0] * 6), pulses,
+                                     chi_max=32, tol=1e-10)
+        self.assertLessEqual(chi, 32)
+        self.assertLess(disc, 1e-6)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestQuaternion(unittest.TestCase):
     def test_axis_geometry(self):
         from eo_pulse_ir.sim import quaternion as q
