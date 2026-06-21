@@ -200,3 +200,24 @@ emits per-gate fidelity histograms and a noise-correlation-model comparison
 python scripts/eo_noise_mc.py --samples 500 --rep-sigma 0.01 -o out/noise
 ```
 
+### Magnetic-field-gradient study
+
+`sim/field.py` adds a static Zeeman field `H_Z = Σ b_i S_z^i` (exact eigen-
+propagation, since exchange and field act simultaneously). `scripts/eo_gradient_study.py`
+answers four physics questions:
+
+- **Intra-block exchange alone does not leak** (`leakage ≈ 1e-15`) — the S=1/2
+  triple is a decoherence-free subsystem, since exchange conserves S².
+- **Raw inter-block (boundary) exchange leaks** (`≈0.31` for a boundary √SWAP);
+  a well-designed gate refocuses it (validated CNOT leakage `7.7e-9`).
+- **A uniform field is harmless** (`b·S_z^total` = global phase), but a **field
+  gradient breaks S² conservation and the DFS**: single-qubit leakage rises from
+  zero ∝ gradient², and two-qubit gates are far more sensitive because the figure
+  of merit is gradient × gate-time (a 1% gradient already costs the CNOT ~70%).
+- **Pulse-parameter sensitivity is visible** as a 2-D (gradient × area-calibration)
+  infidelity map — for the CNOT the field-gradient axis dominates ±5% area error.
+
+```bash
+python scripts/eo_gradient_study.py --res 24 -o out/gradient
+```
+

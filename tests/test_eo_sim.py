@@ -146,6 +146,52 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestField(unittest.TestCase):
+    def _cnot(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        p, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        return [(tuple(x.edge), x.area) for x in p]
+
+    def test_zero_field_matches_exchange_only(self):
+        from eo_pulse_ir.sim import gates, simulate
+        from eo_pulse_ir.sim.field import logical_block_field
+        pulses = self._cnot()
+        M = logical_block_field(pulses, 2, np.zeros(6), j_max=1.0)
+        ref = simulate(pulses, 2, target=gates.CNOT)["fidelity"]
+        from eo_pulse_ir.sim.fidelity import average_gate_fidelity
+        self.assertAlmostEqual(average_gate_fidelity(M, gates.CNOT), ref, places=6)
+
+    def test_uniform_field_is_harmless(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.fidelity import average_gate_fidelity, leakage
+        from eo_pulse_ir.sim.field import logical_block_field, zeeman_energies
+        p, _ = synthesize(parse_circuit("qubits 1\nx 0\n"))
+        M = logical_block_field(p, 1, zeeman_energies(3, 0.0, b0=0.7))
+        self.assertGreater(average_gate_fidelity(M, gates.X), 0.99999)
+        self.assertLess(leakage(M), 1e-9)
+
+    def test_gradient_breaks_dfs_single_qubit(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.field import simulate_field
+        p, _ = synthesize(parse_circuit("qubits 1\nx 0\n"))
+        no = simulate_field([(tuple(x.edge), x.area) for x in p], 1, 0.0, target=gates.X)
+        yes = simulate_field([(tuple(x.edge), x.area) for x in p], 1, 0.1, target=gates.X)
+        self.assertLess(no["leakage"], 1e-9)        # intra-only is leakage-free
+        self.assertGreater(yes["leakage"], 1e-3)    # gradient induces leakage
+
+    def test_gradient_degrades_two_qubit(self):
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.field import simulate_field
+        pulses = self._cnot()
+        clean = simulate_field(pulses, 2, 0.0, target=gates.CNOT)
+        noisy = simulate_field(pulses, 2, 0.02, target=gates.CNOT)
+        self.assertGreater(clean["fidelity"], 0.9999)
+        self.assertGreater(noisy["infidelity"], clean["infidelity"])
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestNoise(unittest.TestCase):
     def _cnot_pulses(self):
         from eo_pulse_ir import parse_circuit, synthesize
