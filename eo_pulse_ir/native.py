@@ -9,8 +9,8 @@ Provenance of each template
 ---------------------------
 - **CNOT (cx)** is *numerically validated*: its (role, area) pulses were optimised
   against the physics simulator (``eo_pulse_ir.sim``) to average gate fidelity
-  0.9996 with leakage 3.8e-4 in the 3-dot S=1/2 encoding (see ``_CX_VALIDATED``
-  and ``scripts/eo_optimize_cnot.py``).
+  0.99999999 with leakage 7.7e-9 in the 3-dot S=1/2 encoding (see
+  ``_CX_VALIDATED`` and ``scripts/eo_optimize_cnot.py``).
 - **Single-qubit gates** use the minimal exchange-generator counts the simulator
   confirms (1 pulse for Z-axis gates; 3 alternating pulses span the rest).
 - **SWAP / CXSWAP** remain *representative templates*: their pulse counts and edge
@@ -65,46 +65,51 @@ def one_qubit_template(name: str, param: float | None = None) -> List[PulseSpec]
 # Validated leakage-free CNOT, optimised against the physics simulator
 # (eo_pulse_ir.sim) by analytic-gradient search over a KAK-style ansatz: four
 # boundary exchanges, each dressed by full single-qubit-capable blocks on the
-# control and target triples.  Average gate fidelity F = 0.999614, leakage
-# 3.8e-4 vs CNOT in the 3-dot S=1/2 encoding.  Reproduce / re-optimise with
+# control and target triples.  Average gate fidelity F = 0.99999999, leakage
+# 7.7e-9 vs CNOT in the 3-dot S=1/2 encoding.  Reproduce / re-optimise with
 # scripts/eo_optimize_cnot.py.  A naive 19-pulse round-robin tops out at
 # F ~ 0.78 in this model, so the validated sequence is longer than the textbook
-# Fong-Wandzura pulse count but is numerically verified end-to-end.  A few areas
-# sit at ~0 or ~2*pi (effective no-ops the optimiser left in place).
+# Fong-Wandzura pulse count but is numerically verified end-to-end.
 _CX_VALIDATED: List[PulseSpec] = [
-    ("ctrl_high", 6.2831852918),
-    ("ctrl_low", 4.8235891651),
-    ("ctrl_high", 0.0000000705),
-    ("tgt_low", 4.4608844497),
-    ("tgt_high", 2.2451100490),
-    ("tgt_low", 3.9982626136),
-    ("inter", 4.6808804741),
-    ("ctrl_high", 4.6970563318),
-    ("ctrl_low", 2.2019744467),
-    ("ctrl_high", 4.6970563097),
-    ("tgt_low", 4.8068596310),
-    ("tgt_high", 2.2056854772),
-    ("tgt_low", 4.6741103089),
-    ("inter", 4.6278413964),
-    ("ctrl_high", 2.1926664128),
-    ("ctrl_low", 4.6855682128),
-    ("ctrl_high", 2.1926664617),
-    ("tgt_low", 2.2721151744),
-    ("tgt_high", 4.4989131380),
-    ("tgt_low", 2.0773274373),
-    ("inter", 4.4070726994),
-    ("ctrl_high", 5.8483359443),
-    ("ctrl_low", 2.9215677337),
-    ("ctrl_high", 5.8483359552),
-    ("tgt_low", 3.4776839627),
-    ("tgt_high", 5.4933159611),
-    ("tgt_low", 2.2296147043),
-    ("inter", 0.5013412537),
+    ("ctrl_high", 4.4137500413),
+    ("ctrl_low", 3.1826568501),
+    ("ctrl_high", 1.9518464551),
+    ("tgt_low", 1.9250246148),
+    ("tgt_high", 5.5600420536),
+    ("tgt_low", 3.8885308054),
+    ("inter", 2.6174392878),
+    ("ctrl_high", 1.5561061501),
+    ("ctrl_low", 4.0579438889),
+    ("ctrl_high", 1.5571544926),
+    ("tgt_low", 1.5565546286),
+    ("tgt_high", 4.0577518066),
+    ("tgt_low", 1.5567943509),
+    ("inter", 5.4245739697),
+    ("ctrl_high", 3.3619487055),
+    ("ctrl_low", 0.4439060211),
+    ("ctrl_high", 3.3706870514),
+    ("tgt_low", 0.4438759958),
+    ("tgt_high", 3.3674557677),
+    ("tgt_low", 0.4439004865),
+    ("inter", 5.4249313322),
+    ("ctrl_high", 4.0573548777),
+    ("ctrl_low", 1.5572133273),
+    ("ctrl_high", 4.0573382919),
+    ("tgt_low", 1.5567305949),
+    ("tgt_high", 4.0576666192),
+    ("tgt_low", 1.5564435410),
+    ("inter", 2.6174798498),
+    ("ctrl_high", 4.7114459672),
+    ("ctrl_low", 4.9788738963),
+    ("ctrl_high", 3.9833706400),
+    ("tgt_low", 3.9480593164),
+    ("tgt_high", 5.5808892469),
+    ("tgt_low", 1.8867090363),
 ]
 
 
 def _cx_template() -> List[PulseSpec]:
-    """Validated nearest-neighbour exchange CNOT (28 pulses, F = 0.9996).
+    """Validated nearest-neighbour exchange CNOT (34 pulses, F = 0.99999999).
 
     Returns the simulator-validated (role, area) sequence in ``_CX_VALIDATED``.
     Roles resolve to the bridging edges of the control/target triples
@@ -157,7 +162,7 @@ def two_qubit_template(name: str) -> List[PulseSpec]:
 TEMPLATE_INFO = {
     "1q-aligned": {"pulses": 1, "source": "template (axis-aligned exchange generator)"},
     "1q-generic": {"pulses": 3, "source": "template (alternating EO generators)"},
-    "cx": {"pulses": 28, "source": "optimized (analytic-gradient, F=0.99961, leak=3.8e-4)"},
+    "cx": {"pulses": 34, "source": "optimized (analytic-gradient, F=0.99999999, leak=7.7e-9)"},
     "swap": {"pulses": 7, "source": "template (encoded-SWAP, representative)"},
     "cxswap": {"pulses": 13, "source": "template (combined CXSWAP, representative)"},
 }

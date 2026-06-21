@@ -151,14 +151,15 @@ two-qubit leakage/robustness landscape. Findings it reproduces:
 ### Validated CNOT template
 
 `scripts/eo_optimize_cnot.py` optimises an EO-native CNOT against the simulator
-and the result is baked into `native.py` (`_CX_VALIDATED`): a **28-pulse,
-leakage-free CNOT at F = 0.9996** (leakage 3.8e-4), using 4 boundary exchanges
-each dressed by full single-qubit blocks. Notable finding: a naive 19-pulse
-round-robin tops out at **F ≈ 0.78** in this nearest-neighbour model — a
+and the result is baked into `native.py` (`_CX_VALIDATED`): a **34-pulse
+leakage-free CNOT at F = 0.99999999** (leakage 7.7e-9), using 4 boundary
+exchanges each dressed by full single-qubit blocks. Notable finding: a naive
+19-pulse round-robin tops out at **F ≈ 0.78** in this nearest-neighbour model — a
 high-fidelity CNOT needs ≈3–4 boundary exchanges with full local dressing, so the
 validated sequence is longer than the textbook Fong–Wandzura pulse count but is
-verified end-to-end (the IR-synthesised `cx` reproduces F = 0.9996 after role
-resolution and scheduling). Re-optimise or push toward F = 1 (N ≈ 34) with:
+verified end-to-end (the IR-synthesised `cx` reproduces F ≈ 1 after role
+resolution and scheduling). A shorter 28-pulse version reaches F = 0.9996.
+Re-optimise with:
 
 ```bash
 python scripts/eo_optimize_cnot.py -o out/cnot.json --restarts 120

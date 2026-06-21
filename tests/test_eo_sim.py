@@ -108,8 +108,8 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
         from eo_pulse_ir.sim import gates, simulate
         pulses, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
         r = simulate(pulses, 2, target=gates.CNOT)
-        self.assertGreater(r["fidelity"], 0.999)
-        self.assertLess(r["leakage"], 1e-3)
+        self.assertGreater(r["fidelity"], 0.9999)
+        self.assertLess(r["leakage"], 1e-6)
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")

@@ -58,7 +58,7 @@ class TestTemplates(unittest.TestCase):
         self.assertAlmostEqual(one_qubit_template("rx", 0.3)[1][1], 0.3)
 
     def test_two_qubit_counts(self):
-        self.assertEqual(len(two_qubit_template("cx")), 28)
+        self.assertEqual(len(two_qubit_template("cx")), 34)
         self.assertEqual(len(two_qubit_template("swap")), 7)
         self.assertEqual(len(two_qubit_template("cxswap")), 13)
 
@@ -118,8 +118,8 @@ class TestPipeline(unittest.TestCase):
     def test_bell_end_to_end(self):
         c = parse_circuit("qubits 2\nh 0\ncx 0 1\n")
         r = compile_circuit(c)
-        # h = 3 pulses, cx = 28 pulses (validated template), no routing (adjacent)
-        self.assertEqual(r.metrics.pulse_count, 3 + 28)
+        # h = 3 pulses, cx = 34 pulses (validated template), no routing (adjacent)
+        self.assertEqual(r.metrics.pulse_count, 3 + 34)
         self.assertGreater(r.metrics.total_time, 0)
         self.assertGreaterEqual(r.metrics.critical_path_pulses, 1)
         self.assertEqual(r.schedule.num_dots, 6)
