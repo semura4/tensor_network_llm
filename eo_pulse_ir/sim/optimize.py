@@ -181,6 +181,51 @@ def optimize_areas_adam(edges: Sequence[Tuple[int, int]], num_qubits: int,
     return areas, float(best_f)
 
 
+def adam_maximize_grad(edges: Sequence[Tuple[int, int]], num_qubits: int,
+                       target: np.ndarray, x0: np.ndarray, steps: int = 2000,
+                       lr: float = 0.1, tol: float = 1e-12
+                       ) -> Tuple[np.ndarray, float]:
+    """Adam ascent on the analytic fidelity gradient (fast, exact gradient)."""
+    x = np.array(x0, dtype=float)
+    m = np.zeros_like(x)
+    v = np.zeros_like(x)
+    b1, b2, eps = 0.9, 0.999, 1e-8
+    best_x, best_f = x.copy(), fidelity_and_grad(x, edges, num_qubits, target)[0]
+    for t in range(1, steps + 1):
+        f, g = fidelity_and_grad(x, edges, num_qubits, target)
+        m = b1 * m + (1 - b1) * g
+        v = b2 * v + (1 - b2) * g * g
+        x = x + lr * (m / (1 - b1 ** t)) / (np.sqrt(v / (1 - b2 ** t)) + eps)
+        if f > best_f:
+            best_f, best_x = f, x.copy()
+        if 1.0 - best_f < tol:
+            break
+    return best_x, best_f
+
+
+def optimize_areas_grad(edges: Sequence[Tuple[int, int]], num_qubits: int,
+                        target: np.ndarray, steps: int = 2000, restarts: int = 60,
+                        seed: int = 0, lr: float = 0.1, tol: float = 1e-10
+                        ) -> Tuple[List[float], float]:
+    """Analytic-gradient area optimisation with random restarts (best for CNOT).
+
+    Returns (areas mod 2*pi, fidelity).  Preferred over the finite-difference and
+    Nelder-Mead variants for many-pulse two-qubit sequences.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(edges)
+    best_x, best_f = None, -np.inf
+    for _ in range(restarts):
+        x0 = rng.uniform(0, 2 * np.pi, size=n)
+        x, f = adam_maximize_grad(edges, num_qubits, target, x0, steps=steps, lr=lr)
+        if f > best_f:
+            best_x, best_f = x, f
+        if 1.0 - best_f < tol:
+            break
+    areas = [float(v % (2 * np.pi)) for v in best_x]
+    return areas, float(best_f)
+
+
 def optimize_areas(edges: Sequence[Tuple[int, int]], num_qubits: int,
                    target: np.ndarray, restarts: int = 12, seed: int = 0
                    ) -> Tuple[List[float], float]:
