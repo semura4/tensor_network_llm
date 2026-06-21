@@ -150,7 +150,7 @@ two-qubit leakage/robustness landscape. Findings it reproduces:
 
 ### Validated CNOT template
 
-`scripts/eo_optimize_cnot.py` optimises an EO-native CNOT against the simulator
+`scripts/eo_optimize_2q.py` optimises an EO-native CNOT against the simulator
 and the result is baked into `native.py` (`_CX_VALIDATED`): a **34-pulse
 leakage-free CNOT at F = 0.99999999** (leakage 7.7e-9), using 4 boundary
 exchanges each dressed by full single-qubit blocks. Notable finding: a naive
@@ -162,6 +162,6 @@ resolution and scheduling). A shorter 28-pulse version reaches F = 0.9996.
 Re-optimise with:
 
 ```bash
-python scripts/eo_optimize_cnot.py -o out/cnot.json --restarts 120
+python scripts/eo_optimize_2q.py -o out/cnot.json --restarts 120
 ```
 

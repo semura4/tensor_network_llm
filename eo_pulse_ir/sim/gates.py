@@ -49,11 +49,20 @@ SWAP = np.array([
     [0, 0, 0, 1],
 ], dtype=complex)
 
+# CXSWAP = SWAP . CNOT  (apply CNOT with control q0, then SWAP):
+#   |00>->|00>, |01>->|10>, |10>->|11>, |11>->|01>
+CXSWAP = np.array([
+    [1, 0, 0, 0],
+    [0, 0, 0, 1],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+], dtype=complex)
+
 
 def by_name(name: str, param: float | None = None) -> np.ndarray:
     name = name.lower()
     table = {"i": I1, "x": X, "y": Y, "z": Z, "h": H, "s": S, "t": T,
-             "cx": CNOT, "cnot": CNOT, "cz": CZ, "swap": SWAP}
+             "cx": CNOT, "cnot": CNOT, "cz": CZ, "swap": SWAP, "cxswap": CXSWAP}
     if name in table:
         return table[name]
     if name == "rz":

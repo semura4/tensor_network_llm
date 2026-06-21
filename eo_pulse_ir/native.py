@@ -10,7 +10,7 @@ Provenance of each template
 - **CNOT (cx)** is *numerically validated*: its (role, area) pulses were optimised
   against the physics simulator (``eo_pulse_ir.sim``) to average gate fidelity
   0.99999999 with leakage 7.7e-9 in the 3-dot S=1/2 encoding (see
-  ``_CX_VALIDATED`` and ``scripts/eo_optimize_cnot.py``).
+  ``_CX_VALIDATED`` and ``scripts/eo_optimize_2q.py``).
 - **Single-qubit gates** use the minimal exchange-generator counts the simulator
   confirms (1 pulse for Z-axis gates; 3 alternating pulses span the rest).
 - **SWAP / CXSWAP** remain *representative templates*: their pulse counts and edge
@@ -67,7 +67,7 @@ def one_qubit_template(name: str, param: float | None = None) -> List[PulseSpec]
 # boundary exchanges, each dressed by full single-qubit-capable blocks on the
 # control and target triples.  Average gate fidelity F = 0.99999999, leakage
 # 7.7e-9 vs CNOT in the 3-dot S=1/2 encoding.  Reproduce / re-optimise with
-# scripts/eo_optimize_cnot.py.  A naive 19-pulse round-robin tops out at
+# scripts/eo_optimize_2q.py.  A naive 19-pulse round-robin tops out at
 # F ~ 0.78 in this model, so the validated sequence is longer than the textbook
 # Fong-Wandzura pulse count but is numerically verified end-to-end.
 _CX_VALIDATED: List[PulseSpec] = [
