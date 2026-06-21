@@ -11,13 +11,16 @@ Provenance of each template
   against the physics simulator (``eo_pulse_ir.sim``) to average gate fidelity
   0.99999999 with leakage 7.7e-9 in the 3-dot S=1/2 encoding (see
   ``_CX_VALIDATED`` and ``scripts/eo_optimize_2q.py``).
-- **SWAP** is *numerically validated*: F = 0.99999999, leakage 3.2e-10 vs SWAP,
-  27 pulses (encoded SWAP is cheaper than CNOT here); see ``_SWAP_VALIDATED``.
+- **SWAP** is *numerically validated*: F = 0.99999999, leakage 3.2e-10, 27 pulses
+  (encoded SWAP is cheaper than CNOT); see ``_SWAP_VALIDATED``.
+- **CXSWAP** is *numerically validated*: F = 0.99992, leakage 6.3e-5, 48 pulses
+  (a higher-entangling permutation, needs more boundary exchanges); see
+  ``_CXSWAP_VALIDATED``.
 - **Single-qubit gates** use the minimal exchange-generator counts the simulator
   confirms (1 pulse for Z-axis gates; 3 alternating pulses span the rest).
-- **CXSWAP** remains a *representative template*: its pulse count and edge
-  structure follow the published construction, but the individual areas are
-  placeholders, not yet optimised to a target unitary.
+
+All three two-qubit gates (CX, SWAP, CXSWAP) are now simulator-validated rather
+than placeholder templates.
 
 This module is also the seam where external data enters: feed an optimiser /
 `eoqrid` pulse list through :func:`eo_pulse_ir.schedule.pulses_from_records` to
@@ -163,15 +166,69 @@ def _swap_template() -> List[PulseSpec]:
     return list(_SWAP_VALIDATED)
 
 
+# Validated leakage-free CXSWAP = SWAP . CNOT (eo_pulse_ir.sim, analytic-gradient
+# search, KAK-style ansatz: 6 boundary exchanges + full single-qubit dressing).
+# Average gate fidelity F = 0.99992, leakage 6.3e-5 vs CXSWAP.  CXSWAP is a
+# higher-entangling permutation, so it needs more boundary exchanges than CNOT
+# (N=34) or SWAP (N=27).  Reproduce with scripts/eo_optimize_2q.py --target cxswap.
+_CXSWAP_VALIDATED: List[PulseSpec] = [
+    ("ctrl_high", 2.3663143677),
+    ("ctrl_low", 3.1423617496),
+    ("ctrl_high", 4.5575040862),
+    ("tgt_low", 5.3247997640),
+    ("tgt_high", 4.9335601522),
+    ("tgt_low", 3.0191896402),
+    ("inter", 4.2535130453),
+    ("ctrl_high", 3.5283039654),
+    ("ctrl_low", 5.7312930310),
+    ("ctrl_high", 1.4275142320),
+    ("tgt_low", 2.0488343953),
+    ("tgt_high", 4.4999005690),
+    ("tgt_low", 2.0268219172),
+    ("inter", 2.2116749599),
+    ("ctrl_high", 4.0006594906),
+    ("ctrl_low", 1.5917832289),
+    ("ctrl_high", 4.0896001615),
+    ("tgt_low", 0.0056238177),
+    ("tgt_high", 5.0229804586),
+    ("tgt_low", 0.0368629950),
+    ("inter", 5.0153702070),
+    ("ctrl_high", 6.2024474817),
+    ("ctrl_low", 4.4820011506),
+    ("ctrl_high", 3.2661785658),
+    ("tgt_low", 1.7985568999),
+    ("tgt_high", 4.2919690605),
+    ("tgt_low", 5.0353096197),
+    ("inter", 3.2871109794),
+    ("ctrl_high", 0.0261899489),
+    ("ctrl_low", 4.7535761513),
+    ("ctrl_high", 3.0657475423),
+    ("tgt_low", 2.9459432081),
+    ("tgt_high", 3.2694940872),
+    ("tgt_low", 3.1804374442),
+    ("inter", 3.0485668746),
+    ("ctrl_high", 5.7178870474),
+    ("ctrl_low", 2.7828989155),
+    ("ctrl_high", 2.7818290185),
+    ("tgt_low", 5.8232282838),
+    ("tgt_high", 4.3409123873),
+    ("tgt_low", 1.0545868859),
+    ("inter", 5.4401330592),
+    ("ctrl_high", 1.8850752186),
+    ("ctrl_low", 5.3424842576),
+    ("ctrl_high", 0.1752082379),
+    ("tgt_low", 1.5228879246),
+    ("tgt_high", 3.1897734151),
+    ("tgt_low", 2.4871341149),
+]
+
+
 def _cxswap_template() -> List[PulseSpec]:
-    """Representative combined CXSWAP (cheaper than CX then SWAP separately)."""
-    roles = ["ctrl_high", "inter", "tgt_low"]
-    pulses: List[PulseSpec] = []
-    for k in range(13):
-        role = roles[k % 3]
-        area = FULL_SWAP if k % 3 != 1 else FULL_SWAP / 2
-        pulses.append((role, area))
-    return pulses
+    """Validated CXSWAP = SWAP . CNOT (48 pulses, F = 0.99992).
+
+    Returns the simulator-validated (role, area) sequence in ``_CXSWAP_VALIDATED``.
+    """
+    return list(_CXSWAP_VALIDATED)
 
 
 def two_qubit_template(name: str) -> List[PulseSpec]:
@@ -191,5 +248,5 @@ TEMPLATE_INFO = {
     "1q-generic": {"pulses": 3, "source": "template (alternating EO generators)"},
     "cx": {"pulses": 34, "source": "optimized (analytic-gradient, F=0.99999999, leak=7.7e-9)"},
     "swap": {"pulses": 27, "source": "optimized (analytic-gradient, F=0.99999999, leak=3.2e-10)"},
-    "cxswap": {"pulses": 13, "source": "template (combined CXSWAP, representative)"},
+    "cxswap": {"pulses": 48, "source": "optimized (analytic-gradient, F=0.99992, leak=6.3e-5)"},
 }

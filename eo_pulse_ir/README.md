@@ -148,20 +148,28 @@ two-qubit leakage/robustness landscape. Findings it reproduces:
   leakage is driven **only by inter-qubit (boundary) exchange**, with
   **noise-robust plateaus** at boundary area `0, π, 2π` (stationary points of `L`).
 
-### Validated CNOT template
+### Validated two-qubit templates
 
-`scripts/eo_optimize_2q.py` optimises an EO-native CNOT against the simulator
-and the result is baked into `native.py` (`_CX_VALIDATED`): a **34-pulse
-leakage-free CNOT at F = 0.99999999** (leakage 7.7e-9), using 4 boundary
-exchanges each dressed by full single-qubit blocks. Notable finding: a naive
-19-pulse round-robin tops out at **F ≈ 0.78** in this nearest-neighbour model — a
-high-fidelity CNOT needs ≈3–4 boundary exchanges with full local dressing, so the
-validated sequence is longer than the textbook Fong–Wandzura pulse count but is
-verified end-to-end (the IR-synthesised `cx` reproduces F ≈ 1 after role
-resolution and scheduling). A shorter 28-pulse version reaches F = 0.9996.
-Re-optimise with:
+`scripts/eo_optimize_2q.py` optimises each EO-native two-qubit gate against the
+simulator (KAK-style ansatz: boundary exchanges dressed by full single-qubit
+blocks) and the results are baked into `native.py`:
+
+| gate | pulses | fidelity | leakage | constant |
+|---|---|---|---|---|
+| CNOT  | 34 | 0.99999999 | 7.7e-9 | `_CX_VALIDATED` |
+| SWAP  | 27 | 0.99999999 | 3.2e-10 | `_SWAP_VALIDATED` |
+| CXSWAP| 48 | 0.99992    | 6.3e-5 | `_CXSWAP_VALIDATED` |
+
+All three are verified end-to-end: the IR-synthesised gate reproduces the listed
+fidelity after role resolution and scheduling. Findings: the **minimum pulse
+count tracks entangling content** — SWAP (3 boundary exchanges) < CNOT (4) <
+CXSWAP (6); and a naive 19-pulse round-robin CNOT tops out at **F ≈ 0.78**, so a
+high-fidelity gate needs full single-qubit dressing around each boundary
+exchange. Re-optimise with:
 
 ```bash
-python scripts/eo_optimize_2q.py -o out/cnot.json --restarts 120
+python scripts/eo_optimize_2q.py --target cnot   -o out/cnot.json
+python scripts/eo_optimize_2q.py --target swap   -o out/swap.json
+python scripts/eo_optimize_2q.py --target cxswap -o out/cxswap.json
 ```
 
