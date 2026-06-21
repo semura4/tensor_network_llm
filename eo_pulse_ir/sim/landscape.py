@@ -151,3 +151,108 @@ def save_grids_json(grids: Dict[str, np.ndarray], xs: Sequence[float],
 def write_svg(svg: str, path: str) -> None:
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(svg)
+
+
+_SERIES_COLORS = ["#4C78A8", "#E45756", "#54A24B", "#F58518", "#B279A2"]
+
+
+def line_plot_svg(series, title="", xlabel="x", ylabel="y", logx=False, logy=False,
+                  width=720, height=440):
+    """Render labelled line series ``[(name, xs, ys), ...]`` as an SVG plot."""
+    pad_l, pad_t, pad_r, pad_b = 70, 44, 150, 56
+    pw, ph = width - pad_l - pad_r, height - pad_t - pad_b
+
+    def tx(v):
+        return np.log10(v) if logx else v
+
+    def ty(v):
+        return np.log10(max(v, 1e-18)) if logy else v
+
+    allx = [tx(x) for _, xs, _ in series for x in xs]
+    ally = [ty(y) for _, _, ys in series for y in ys]
+    xmin, xmax = min(allx), max(allx)
+    ymin, ymax = min(ally), max(ally)
+    xs_span = (xmax - xmin) or 1.0
+    ys_span = (ymax - ymin) or 1.0
+
+    def px(v):
+        return pad_l + (tx(v) - xmin) / xs_span * pw
+
+    def py(v):
+        return pad_t + ph - (ty(v) - ymin) / ys_span * ph
+
+    p = [f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' "
+         f"font-family='monospace' font-size='11'>",
+         f"<rect width='{width}' height='{height}' fill='white'/>",
+         f"<text x='12' y='24' font-size='15' font-weight='bold'>{_esc(title)}</text>",
+         f"<rect x='{pad_l}' y='{pad_t}' width='{pw}' height='{ph}' fill='none' "
+         f"stroke='#ccc'/>"]
+    # gridline ticks (5 each)
+    for k in range(6):
+        gx = xmin + xs_span * k / 5
+        x = pad_l + (gx - xmin) / xs_span * pw
+        lab = (10 ** gx) if logx else gx
+        p.append(f"<line x1='{x:.1f}' y1='{pad_t}' x2='{x:.1f}' y2='{pad_t+ph}' "
+                 f"stroke='#f0f0f0'/>")
+        p.append(f"<text x='{x:.1f}' y='{pad_t+ph+16}' text-anchor='middle' "
+                 f"fill='#666'>{lab:.3g}</text>")
+        gy = ymin + ys_span * k / 5
+        y = pad_t + ph - (gy - ymin) / ys_span * ph
+        lab = (10 ** gy) if logy else gy
+        p.append(f"<line x1='{pad_l}' y1='{y:.1f}' x2='{pad_l+pw}' y2='{y:.1f}' "
+                 f"stroke='#f0f0f0'/>")
+        p.append(f"<text x='{pad_l-6}' y='{y+4:.1f}' text-anchor='end' "
+                 f"fill='#666'>{lab:.2g}</text>")
+    for i, (name, xs, ys) in enumerate(series):
+        c = _SERIES_COLORS[i % len(_SERIES_COLORS)]
+        pts = " ".join(f"{px(x):.1f},{py(y):.1f}" for x, y in zip(xs, ys))
+        p.append(f"<polyline points='{pts}' fill='none' stroke='{c}' stroke-width='2'/>")
+        for x, y in zip(xs, ys):
+            p.append(f"<circle cx='{px(x):.1f}' cy='{py(y):.1f}' r='2.5' fill='{c}'/>")
+        ly = pad_t + 6 + i * 18
+        p.append(f"<rect x='{pad_l+pw+14}' y='{ly-9}' width='12' height='12' fill='{c}'/>")
+        p.append(f"<text x='{pad_l+pw+30}' y='{ly+1}' fill='#333'>{_esc(name)}</text>")
+    p.append(f"<text x='{pad_l+pw/2:.0f}' y='{height-12}' text-anchor='middle' "
+             f"fill='#333'>{_esc(xlabel)}</text>")
+    p.append(f"<text x='16' y='{pad_t+ph/2:.0f}' fill='#333' "
+             f"transform='rotate(-90 16 {pad_t+ph/2:.0f})' text-anchor='middle'>"
+             f"{_esc(ylabel)}</text>")
+    p.append("</svg>")
+    return "\n".join(p)
+
+
+def histogram_svg(samples, bins=40, title="", xlabel="fidelity", width=720, height=400):
+    """Render a histogram of ``samples`` as SVG."""
+    samples = np.asarray(samples, float)
+    pad_l, pad_t, pad_r, pad_b = 60, 44, 24, 52
+    pw, ph = width - pad_l - pad_r, height - pad_t - pad_b
+    counts, edges = np.histogram(samples, bins=bins)
+    cmax = counts.max() or 1
+    xmin, xmax = edges[0], edges[-1]
+    xspan = (xmax - xmin) or 1.0
+    p = [f"<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' "
+         f"font-family='monospace' font-size='11'>",
+         f"<rect width='{width}' height='{height}' fill='white'/>",
+         f"<text x='12' y='24' font-size='15' font-weight='bold'>{_esc(title)}</text>"]
+    bw = pw / len(counts)
+    for i, c in enumerate(counts):
+        h = ph * c / cmax
+        x = pad_l + i * bw
+        y = pad_t + ph - h
+        p.append(f"<rect x='{x:.1f}' y='{y:.1f}' width='{bw+0.5:.1f}' height='{h:.1f}' "
+                 f"fill='#4C78A8' fill-opacity='0.85'/>")
+    mean = float(samples.mean())
+    mx = pad_l + (mean - xmin) / xspan * pw
+    p.append(f"<line x1='{mx:.1f}' y1='{pad_t}' x2='{mx:.1f}' y2='{pad_t+ph}' "
+             f"stroke='#E45756' stroke-width='1.5' stroke-dasharray='4 3'/>")
+    p.append(f"<text x='{mx:.1f}' y='{pad_t-4}' text-anchor='middle' fill='#E45756'>"
+             f"mean {mean:.5f}</text>")
+    for k in range(6):
+        gx = xmin + xspan * k / 5
+        x = pad_l + (gx - xmin) / xspan * pw
+        p.append(f"<text x='{x:.1f}' y='{pad_t+ph+16}' text-anchor='middle' "
+                 f"fill='#666'>{gx:.4g}</text>")
+    p.append(f"<text x='{pad_l+pw/2:.0f}' y='{height-10}' text-anchor='middle' "
+             f"fill='#333'>{_esc(xlabel)}</text>")
+    p.append("</svg>")
+    return "\n".join(p)

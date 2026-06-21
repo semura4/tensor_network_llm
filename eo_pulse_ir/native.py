@@ -41,30 +41,69 @@ FULL_SWAP = PI
 PulseSpec = Tuple[str, float]
 
 ALIGNED_1Q = {"z", "s", "sdg", "t", "tdg", "rz"}
-_ALIGNED_AREA = {"z": PI, "s": PI / 2, "sdg": PI / 2, "t": PI / 4, "tdg": PI / 4}
+# Intended logical Rz angle for each aligned gate (Z = Rz(pi) up to phase, etc.).
+_ALIGNED_ANGLE = {"z": PI, "s": PI / 2, "sdg": -PI / 2, "t": PI / 4, "tdg": -PI / 4}
+
+# Validated single-qubit sequences (optimised against eo_pulse_ir.sim to F = 1).
+# Reproduce with scripts/eo_optimize_2q.py-style search; areas are exact to ~1e-9.
+_H_1Q: List["PulseSpec"] = [
+    ("intra_high", 1.4154735192),
+    ("intra_low", 5.6761916893),
+    ("intra_high", 1.4154710796),
+]
+_X_1Q: List["PulseSpec"] = [
+    ("intra_high", 1.9106345199),
+    ("intra_low", 1.2309597283),
+    ("intra_high", 1.9106318818),
+]
+_Y_1Q: List["PulseSpec"] = [
+    ("intra_low", 3.1500873809),
+    ("intra_high", 4.3810341895),
+    ("intra_low", 5.0521925625),
+    ("intra_high", 4.3640456523),
+]
+
+
+def _rz_area(theta: float) -> float:
+    """Intra-low pulse area implementing logical Rz(theta).
+
+    intra_low exchange of area A realises Rz(-A) (up to global phase), so to get
+    Rz(theta) we use A = (-theta) mod 2*pi.
+    """
+    return (-theta) % (2 * PI)
 
 
 def one_qubit_template(name: str, param: float | None = None) -> List[PulseSpec]:
     """Expand a single-qubit logical gate into intra-triple exchange pulses.
 
-    Aligned gates (z/s/t/rz) need a single pulse on one exchange generator;
-    everything else uses a 3-pulse alternating-generator sequence (the two EO
-    generators act about axes ~120 degrees apart, so 3-4 pulses span SU(2)).
+    All outputs are simulator-validated (F = 1, leakage-free):
+      - aligned gates (z/s/t/sdg/tdg/rz): one intra_low pulse, exact;
+      - x, h: validated 3-pulse alternating sequences;
+      - y: validated 4-pulse sequence (3 pulses cannot reach Y; the two EO
+        generators are ~120 degrees apart);
+      - rx/ry: composed exactly from the validated H and exact Rz
+        (Rx = H Rz H,  Ry = S Rx Sdg).
     """
     name = name.lower()
     if name in ALIGNED_1Q:
-        area = abs(param) if name == "rz" else _ALIGNED_AREA[name]
-        return [("intra_low", area)]
-
-    if name in ("x", "y"):
-        mid = PI
-    elif name == "h":
-        mid = PI / 2
-    elif name in ("rx", "ry"):
-        mid = abs(param) if param is not None else PI / 2
-    else:
-        raise ValueError(f"no 1-qubit template for {name!r}")
-    return [("intra_high", PI / 2), ("intra_low", mid), ("intra_high", PI / 2)]
+        theta = param if name == "rz" else _ALIGNED_ANGLE[name]
+        return [("intra_low", _rz_area(theta))]
+    if name == "h":
+        return list(_H_1Q)
+    if name == "x":
+        return list(_X_1Q)
+    if name == "y":
+        return list(_Y_1Q)
+    if name == "rx":
+        # Rx(theta) = H Rz(theta) H
+        return list(_H_1Q) + [("intra_low", _rz_area(param))] + list(_H_1Q)
+    if name == "ry":
+        # Ry(theta) = S Rx(theta) Sdg ; application order: Sdg, H, Rz, H, S
+        sdg = [("intra_low", _rz_area(-PI / 2))]
+        s = [("intra_low", _rz_area(PI / 2))]
+        return (sdg + list(_H_1Q) + [("intra_low", _rz_area(param))]
+                + list(_H_1Q) + s)
+    raise ValueError(f"no 1-qubit template for {name!r}")
 
 
 # Validated leakage-free CNOT, optimised against the physics simulator

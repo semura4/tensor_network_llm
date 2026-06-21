@@ -44,3 +44,5 @@ jobs:
         run: python -m unittest tests.test_eo_sim -v
       - name: Smoke-test the validation + landscape script
         run: python scripts/eo_landscape.py --res 10 -o out/landscape
+      - name: Smoke-test the noise Monte-Carlo script
+        run: python scripts/eo_noise_mc.py --samples 40 --rep-sigma 0.01 -o out/noise

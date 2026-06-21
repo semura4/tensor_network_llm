@@ -52,10 +52,13 @@ class TestTemplates(unittest.TestCase):
         self.assertEqual(len(one_qubit_template("z")), 1)
         self.assertEqual(len(one_qubit_template("rz", math.pi / 2)), 1)
         self.assertEqual(len(one_qubit_template("h")), 3)
-        self.assertEqual(len(one_qubit_template("rx", 0.3)), 3)
-        # parametrised area flows through
-        self.assertAlmostEqual(one_qubit_template("rz", 1.234)[0][1], 1.234)
-        self.assertAlmostEqual(one_qubit_template("rx", 0.3)[1][1], 0.3)
+        self.assertEqual(len(one_qubit_template("x")), 3)
+        self.assertEqual(len(one_qubit_template("y")), 4)   # Y needs 4 pulses
+        self.assertEqual(len(one_qubit_template("rx", 0.3)), 7)  # H Rz H
+        self.assertEqual(len(one_qubit_template("ry", 0.3)), 9)  # S H Rz H Sdg
+        # rz area implements Rz(theta) via A = (-theta) mod 2*pi
+        self.assertAlmostEqual(one_qubit_template("rz", 1.0)[0][1],
+                               (-1.0) % (2 * math.pi))
 
     def test_two_qubit_counts(self):
         self.assertEqual(len(two_qubit_template("cx")), 34)

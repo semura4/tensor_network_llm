@@ -75,12 +75,13 @@ emit_artifacts(res, "out/bell", title="bell")
 
 - **Exact** given a pulse list: every count, time, parallelism, idle figure, and
   all memory-usage / sequencer-conflict numbers.
-- **Representative, not optimised:** the gate→pulse templates in `native.py`. The
-  *pulse counts and edge structure* follow the published EO constructions (e.g.
-  the 19-pulse nearest-neighbour CNOT), but the *individual pulse areas are
-  placeholders*, not angles tuned to reproduce a target unitary at high fidelity.
-- **Heuristic proxies, not simulated fidelity:** `estimated_leakage_risk` and
-  `noise_sensitivity`. They *rank* schedules; they do not predict experiment.
+- **Simulator-validated:** the gate→pulse templates in `native.py`. Every gate's
+  pulse areas were optimised against the physics simulator (`sim/`) to reproduce
+  the target unitary at F ≥ 0.9999, verified end-to-end through the IR (single-
+  qubit gates are exact; the two-qubit gates are listed below).
+- **Heuristic proxies (core IR, numpy-free path):** `estimated_leakage_risk` and
+  `noise_sensitivity` from `metrics.py` *rank* schedules cheaply; for real
+  fidelity/leakage and noise distributions use the `sim/` layer.
 
 ## Integration seam
 
@@ -141,9 +142,11 @@ python -m unittest tests.test_eo_sim
 two-qubit leakage/robustness landscape. Findings it reproduces:
 
 - `intra_low(0,1)` of area `θ` realises `Rz(−θ)` exactly, leakage-free.
-- **X and H synthesise to fidelity 1 with 3 alternating exchange pulses; Y cannot
-  (F≈0.833) and needs 4** — the two EO generators are ~120° apart. The optimiser
-  (`sim/optimize.py`) returns the validated areas, replacing the placeholders.
+- **X and H reach fidelity 1 with 3 alternating exchange pulses; Y cannot
+  (F≈0.833) and needs 4** — the two EO generators are ~120° apart. These validated
+  areas are baked into `native.py`'s single-qubit templates (`rx`/`ry` are then
+  composed exactly as `H·Rz·H` / `S·H·Rz·H·Sdg`); aligned gates use the exact
+  `intra_low` area `(−θ) mod 2π`.
 - Single-qubit operations are **leakage-free** (exchange conserves `S²` in a triple);
   leakage is driven **only by inter-qubit (boundary) exchange**, with
   **noise-robust plateaus** at boundary area `0, π, 2π` (stationary points of `L`).
@@ -171,5 +174,29 @@ exchange. Re-optimise with:
 python scripts/eo_optimize_2q.py --target cnot   -o out/cnot.json
 python scripts/eo_optimize_2q.py --target swap   -o out/swap.json
 python scripts/eo_optimize_2q.py --target cxswap -o out/cxswap.json
+```
+
+### Noise robustness (Monte-Carlo)
+
+`scripts/eo_noise_mc.py` injects multiplicative pulse-area noise `A → A·(1+ε)`
+(the charge-noise channel `dJ/J`, quasi-static per edge) and samples the gate
+fidelity, giving a real distribution rather than the heuristic
+`noise_sensitivity`. Infidelity grows quadratically with σ (`infidelity ≈ c·σ²`),
+and the susceptibility `c` tracks pulse count:
+
+| gate | pulses | susceptibility c | mean F @ σ=1% | worst F @ 1% |
+|---|---|---|---|---|
+| H      | 3  | 6.4   | 0.99938 | 0.99446 |
+| SWAP   | 27 | 83.5  | 0.99041 | 0.92354 |
+| CNOT   | 34 | 99.9  | 0.98834 | 0.93702 |
+| CXSWAP | 48 | 112.1 | 0.98622 | 0.91791 |
+
+So more pulses = more accumulated charge-noise error: single-qubit gates lose
+~0.06% fidelity at 1% area noise, two-qubit gates ~1–1.4%. The script also
+emits per-gate fidelity histograms and a noise-correlation-model comparison
+(`per_edge` vs `global` vs `independent`).
+
+```bash
+python scripts/eo_noise_mc.py --samples 500 --rep-sigma 0.01 -o out/noise
 ```
 

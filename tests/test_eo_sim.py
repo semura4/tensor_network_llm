@@ -111,6 +111,23 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
         self.assertGreater(r["fidelity"], 0.9999)
         self.assertLess(r["leakage"], 1e-6)
 
+    def test_validated_single_qubit_templates(self):
+        # Every single-qubit native template must implement its gate exactly.
+        import numpy as np
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates, simulate
+        cases = [("h", gates.H), ("x", gates.X), ("y", gates.Y), ("z", gates.Z),
+                 ("s", gates.S), ("t", gates.T)]
+        for g, V in cases:
+            pulses, _ = synthesize(parse_circuit(f"qubits 1\n{g} 0\n"))
+            r = simulate(pulses, 1, target=V)
+            self.assertGreater(r["fidelity"], 0.99999, f"{g} fidelity")
+        # parametrised rotations composed from validated H + exact Rz
+        for g, V in [("rz", gates.rz(0.7)), ("rx", gates.rx(0.7)), ("ry", gates.ry(0.7))]:
+            pulses, _ = synthesize(parse_circuit(f"qubits 1\n{g} 0 0.7\n"))
+            r = simulate(pulses, 1, target=V)
+            self.assertGreater(r["fidelity"], 0.99999, f"{g} fidelity")
+
     def test_validated_swap_template(self):
         from eo_pulse_ir import parse_circuit, synthesize
         from eo_pulse_ir.sim import gates, simulate
@@ -126,6 +143,40 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
         r = simulate(pulses, 2, target=gates.CXSWAP)
         self.assertGreater(r["fidelity"], 0.999)
         self.assertLess(r["leakage"], 1e-3)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestNoise(unittest.TestCase):
+    def _cnot_pulses(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        pulses, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        return [tuple(p.edge) for p in pulses], [p.area for p in pulses]
+
+    def test_zero_noise_matches_baseline(self):
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.noise import montecarlo_fidelity
+        edges, areas = self._cnot_pulses()
+        r = montecarlo_fidelity(edges, areas, 2, gates.CNOT, sigma=0.0, n_samples=8)
+        self.assertGreater(r["mean_fidelity"], 0.9999)
+        self.assertAlmostEqual(r["std_fidelity"], 0.0, places=9)
+
+    def test_noise_degrades_and_susceptibility_positive(self):
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.noise import robustness_sweep, susceptibility
+        edges, areas = self._cnot_pulses()
+        sweep = robustness_sweep(edges, areas, 2, gates.CNOT,
+                                 [0.0, 0.01, 0.03], n_samples=60, seed=0)
+        self.assertGreater(sweep[0]["mean_fidelity"], sweep[-1]["mean_fidelity"])
+        self.assertGreater(susceptibility(sweep), 0.0)
+
+    def test_correlation_models_run(self):
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.noise import montecarlo_fidelity
+        edges, areas = self._cnot_pulses()
+        for corr in ("per_edge", "global", "independent"):
+            r = montecarlo_fidelity(edges, areas, 2, gates.CNOT, 0.02,
+                                    n_samples=30, correlation=corr, seed=1)
+            self.assertTrue(0.0 < r["mean_fidelity"] <= 1.0)
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
