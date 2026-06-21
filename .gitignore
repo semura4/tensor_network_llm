@@ -26,3 +26,7 @@ Thumbs.db
 venv/
 .venv/
 env/
+
+# EO Pulse Control IR generated artefacts
+out/
+eo_out/

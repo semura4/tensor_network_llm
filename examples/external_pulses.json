@@ -1,0 +1,11 @@
+{
+  "_comment": "Example of optimiser / eoqrid output ingested directly into the IR. Each pulse: edge [low,high], area (radians; full SWAP = pi), optional gate/role/logical_qubits.",
+  "num_dots": 6,
+  "pulses": [
+    {"edge": [1, 2], "area": 1.5707963, "gate": "cx", "role": "ctrl_high", "logical_qubits": [0, 1]},
+    {"edge": [2, 3], "area": 3.1415926, "gate": "cx", "role": "inter", "logical_qubits": [0, 1]},
+    {"edge": [3, 4], "area": 1.5707963, "gate": "cx", "role": "tgt_low", "logical_qubits": [0, 1]},
+    {"edge": [2, 3], "area": 3.1415926, "gate": "cx", "role": "inter", "logical_qubits": [0, 1]},
+    {"edge": [1, 2], "area": 0.7853981, "gate": "cx", "role": "ctrl_high", "logical_qubits": [0, 1]}
+  ]
+}

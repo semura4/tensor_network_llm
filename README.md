@@ -121,6 +121,22 @@ python scripts/visualize.py
 - Gu, A. & Dao, T. (2023). *Mamba: Linear-Time Sequence Modeling with Selective State Spaces*.
 - Blelloch, G. (1990). *Prefix Sums and Their Applications*. Technical Report CMU-CS-90-190.
 
+## Subproject: EO Pulse Control IR
+
+This repository also hosts [`eo_pulse_ir/`](eo_pulse_ir/README.md) — a
+dependency-free intermediate representation and control-cost evaluator for
+**exchange-only (EO) spin qubits**. It compiles a logical circuit (QASM-lite /
+OpenQASM-2 subset) into scheduled exchange pulses and emits an HRL-style
+cryo-CMOS instruction/pattern memory image, a pulse-timeline visualisation, and
+a control-cost report.
+
+```bash
+python -m eo_pulse_ir.cli examples/bell.qasm -o out/bell
+python -m unittest tests.test_eo_pulse_ir
+```
+
+See [`eo_pulse_ir/README.md`](eo_pulse_ir/README.md) for the model and scope.
+
 ## License
 
 MIT
