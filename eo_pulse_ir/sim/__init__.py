@@ -18,6 +18,7 @@ from .lie import lie_closure, sector_indices, subspace_coupling
 from .mps import MPS, evolve_pulses
 from .mps_grape import ghz_target, grape_state_prep, state_prep_fidelity
 from .operators import apply_pulse, exchange_propagator, s_dot_s, swap_matrix
+from .robust import ensemble_fidelity, robust_design, valley_phase_samples
 from .simulator import logical_block, simulate
 from .statespace import StateSpaceSystem, real_generator
 from .synthesis import GateDesign, design_gate, layered_ansatz
@@ -39,4 +40,5 @@ __all__ = [
     "local_maxima", "classify_critical", "optima_sweep",
     "simulate_valley", "logical_block_valley", "two_dot_pulse", "effective_valley_areas",
     "calibrate_sigma", "mean_fidelity", "predict_fidelities",
+    "robust_design", "ensemble_fidelity", "valley_phase_samples",
 ]

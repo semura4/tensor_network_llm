@@ -400,3 +400,18 @@ matches the real device with one fitted parameter.
 python scripts/eo_calibrate.py --ref-fidelity 0.99 -o out/calibration
 ```
 
+### Valley-robust pulse design
+
+`sim/robust.py` does **ensemble-averaged** optimal control: it maximises the mean
+gate fidelity over a distribution of perturbations (valley-phase spread and/or
+charge noise), producing a gate that trades a little peak fidelity for a much
+flatter response. A CNOT trained over a ±0.3π valley-phase spread holds **mean
+fidelity ≈ 0.94 vs ≈ 0.78** for the standard gate (`scripts/eo_robust.py`): the
+baseline collapses from F=1 to ~0.3 across the spread while the robust gate stays
+near 0.99. This is the right objective given that valley/E_VS *uniformity* is the
+bottleneck; the same machinery accepts charge-noise ensembles for noise-robust gates.
+
+```bash
+python scripts/eo_robust.py --spread 0.3 -o out/robust
+```
+

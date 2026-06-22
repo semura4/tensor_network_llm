@@ -146,6 +146,32 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestRobust(unittest.TestCase):
+    def test_robust_beats_baseline_over_spread(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.robust import (ensemble_fidelity, robust_design,
+                                            valley_phase_samples)
+        cx, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        edges = [tuple(p.edge) for p in cx]
+        base = np.array([p.area for p in cx])
+        delta = 0.3 * np.pi
+        train = valley_phase_samples(edges, np.linspace(-delta, delta, 5))
+        robust, _ = robust_design(edges, 2, gates.CNOT, train, x0=base, steps=120)
+        test = valley_phase_samples(edges, np.linspace(-delta, delta, 11))
+        base_mean = ensemble_fidelity(base, edges, 2, gates.CNOT, test)
+        rob_mean = ensemble_fidelity(robust, edges, 2, gates.CNOT, test)
+        self.assertGreater(rob_mean, base_mean + 0.03)   # clear robustness advantage
+
+    def test_inter_edge_detection(self):
+        from eo_pulse_ir.sim.robust import is_inter_edge
+        self.assertTrue(is_inter_edge((2, 3)))
+        self.assertTrue(is_inter_edge((5, 6)))
+        self.assertFalse(is_inter_edge((0, 1)))
+        self.assertFalse(is_inter_edge((3, 4)))
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestCalibration(unittest.TestCase):
     def test_calibrate_and_predict_hierarchy(self):
         from eo_pulse_ir import parse_circuit, synthesize

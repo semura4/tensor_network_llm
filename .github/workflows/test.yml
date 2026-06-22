@@ -73,3 +73,5 @@ jobs:
         run: python scripts/eo_valley.py -o out/valley
       - name: Smoke-test the device calibration
         run: python scripts/eo_calibrate.py --samples 120 -o out/calibration
+      - name: Smoke-test valley-robust pulse design
+        run: python scripts/eo_robust.py --spread 0.3 --steps 60 -o out/robust
