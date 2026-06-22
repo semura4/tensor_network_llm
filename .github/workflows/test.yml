@@ -77,3 +77,5 @@ jobs:
         run: python scripts/eo_robust.py --spread 0.3 --steps 60 -o out/robust
       - name: Smoke-test joint valley+noise robust design
         run: python scripts/eo_robust_joint.py --spread 0.3 --sigma 0.01 --steps 50 -o out/robust_joint
+      - name: Smoke-test robust vs best-known short exact comparison
+        run: python scripts/eo_robust_compare.py --quick -o out/robust_compare

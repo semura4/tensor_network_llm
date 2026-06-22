@@ -263,6 +263,18 @@ For comparison, valley-robust design *alone* (charge noise off) lifts the mean
 fidelity over ±0.3π from 0.783 to 0.943; adding the calibrated charge channel to
 both training and evaluation gives the joint numbers above.
 
+**Falsifiable claim vs the best-known short exact gate.** The strongest
+non-robust baseline is the shortest exact sequence (DiVincenzo 19-pulse,
+Fong–Wandzura 22-pulse), which accrues less charge-noise error. We construct a
+compact 27-pulse exact CNOT (KAK ansatz, nominal F = 0.9988) that is shorter and
+more charge-favourable than the 34-pulse standard gate; under the joint ensemble
+it reaches 0.926 (vs 0.826). Removing charge noise entirely from it (σ = 0)
+gives a **charge-noise-free ceiling of 0.932** — an upper bound on *any* shorter
+exact sequence, since fewer pulses can only reduce charge-noise error. The
+joint-robust CNOT (0.950) **beats that ceiling**, so the advantage is on the
+valley axis and cannot be recovered by reducing pulse count
+(`scripts/eo_robust_compare.py`).
+
 ---
 
 ## 7. Scaling: optimal control on tensor networks
