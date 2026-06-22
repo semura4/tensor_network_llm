@@ -340,3 +340,24 @@ GRAPE is infeasible, with bond dimension staying small.
 python scripts/eo_mps_grape.py --max-qubits 6 -o out/mps_grape
 ```
 
+### Bifurcation analysis of the control landscape
+
+`sim/bifurcation.py` applies nonlinear-dynamics tooling to the control problem
+(a nonlinear map: pulse parameters → fidelity). `scripts/eo_bifurcation.py` shows
+two effects of a field gradient (or, equivalently, a valley-induced drift):
+
+- **Landscape bifurcations** — the single-qubit 2-pulse landscape `F(a,b)` gains
+  optima via **saddle-node bifurcations** as the gradient grows (1 → 6 local optima),
+  while the global maximum fidelity falls: the control problem becomes rugged.
+- **Controllability bifurcation** — the reachable-set Lie-algebra dimension jumps
+  **4 → 8** the instant a gradient is switched on (the DFS subalgebra opens to full
+  su(3) and couples to leakage).
+
+Takeaway: a gradient both opens leakage channels and roughens the landscape, so
+robust pulse design should target broad, gradient-insensitive optima — connecting
+the dynamical-systems view to the noise/valley robustness goals.
+
+```bash
+python scripts/eo_bifurcation.py --res 72 -o out/bifurcation
+```
+

@@ -146,6 +146,35 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestBifurcation(unittest.TestCase):
+    def test_local_maxima_count(self):
+        from eo_pulse_ir.sim.bifurcation import local_maxima
+        # two clear bumps on a flat-ish periodic grid
+        x = np.linspace(0, 2 * np.pi, 40, endpoint=False)
+        X, Y = np.meshgrid(x, x)
+        G = np.cos(X) + np.cos(Y)            # maxima where both cos=1 -> one peak on torus
+        self.assertEqual(len(local_maxima(G, periodic=True)), 1)
+
+    def test_classify_critical(self):
+        from eo_pulse_ir.sim.bifurcation import classify_critical
+        x = np.linspace(0, 2 * np.pi, 40, endpoint=False)
+        X, Y = np.meshgrid(x, x)
+        G = np.cos(X) + np.cos(Y)
+        # peak at index (0,0) is a maximum
+        self.assertEqual(classify_critical(G, 0, 0), "max")
+
+    def test_optima_sweep_detects_more_optima(self):
+        from eo_pulse_ir.sim.bifurcation import optima_sweep
+        x = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+        # param p adds a second cosine harmonic -> more optima as p grows
+        def grid(p):
+            X, Y = np.meshgrid(x, x)
+            return np.cos(X) + np.cos(Y) + p * (np.cos(2 * X) + np.cos(2 * Y))
+        sweep = optima_sweep(grid, [0.0, 1.0], x, x, periodic=True)
+        self.assertLessEqual(sweep[0].num_maxima, sweep[1].num_maxima)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestMPSGrape(unittest.TestCase):
     def test_ghz_target_matches_dense(self):
         from eo_pulse_ir.sim.encoding import logical_basis
