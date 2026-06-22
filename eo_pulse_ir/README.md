@@ -98,6 +98,16 @@ emit_artifacts(res, "out/ext")
 Everything downstream (schedule, metrics, memory images, visualisation) is exact
 for whatever pulse list it is given.
 
+### Adapters & IR spec
+
+[`docs/IR_SPEC.md`](../docs/IR_SPEC.md) is the versioned contract (JSON/CSV) so
+other tools can produce/consume the IR. `eo_pulse_ir.adapters` provides the seams:
+
+- `adapters.qasm` — OpenQASM-2 subset in/out (round-trips with the front end);
+- `adapters.external` — external optimiser / `eoqrid` **pulse records ↔ IR**
+  (`pulse_records_to_result` / `ir_to_pulse_records`);
+- `adapters.blueqat` — Blueqat-style **gate lists / `Circuit` → our `Circuit`**.
+
 ## Layout
 
 | file | role |

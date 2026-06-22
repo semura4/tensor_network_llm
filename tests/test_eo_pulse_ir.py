@@ -172,6 +172,33 @@ class TestPipeline(unittest.TestCase):
         self.assertIn("</svg>", svg)
 
 
+class TestAdapters(unittest.TestCase):
+    def test_qasm_roundtrip(self):
+        from eo_pulse_ir.adapters import from_openqasm, to_openqasm
+        circ = parse_circuit("qubits 3\nh 0\ncx 0 1\nrz 2 0.5\ncxswap 0 2\n")
+        qasm = to_openqasm(circ)
+        back = from_openqasm(qasm)
+        self.assertEqual(back.num_qubits, circ.num_qubits)
+        self.assertEqual([g.name for g in back.gates], [g.name for g in circ.gates])
+        self.assertEqual(back.gates[1].qubits, (0, 1))
+        self.assertAlmostEqual(back.gates[2].params[0], 0.5)
+
+    def test_from_gate_list(self):
+        from eo_pulse_ir.adapters import from_gate_list
+        circ = from_gate_list([("h", (0,)), ("cnot", (0, 1)), ("rz", (1,), (0.3,))])
+        self.assertEqual(circ.num_qubits, 2)
+        self.assertEqual([g.name for g in circ.gates], ["h", "cx", "rz"])
+
+    def test_external_records_roundtrip(self):
+        from eo_pulse_ir.adapters import ir_to_pulse_records, pulse_records_to_result
+        recs = [{"edge": [2, 3], "area": 3.14159, "role": "inter"},
+                {"edge": [1, 2], "area": 1.57, "role": "intra"}]
+        result = pulse_records_to_result(recs, num_dots=6)
+        out = ir_to_pulse_records(result)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(result.metrics.pulse_count, 2)
+
+
 class TestApp(unittest.TestCase):
     def test_dashboard_html(self):
         from eo_pulse_ir.dashboard import build_dashboard

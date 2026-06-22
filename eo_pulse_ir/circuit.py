@@ -135,7 +135,10 @@ def parse_circuit(text: str) -> Circuit:
         if not line:
             continue
         low = line.lower()
-        if low.startswith("openqasm") or low.startswith("include") or low.startswith("creg"):
+        # ignore headers, register/classical declarations, and non-gate statements
+        first = low.split()[0].split("(")[0]
+        if first in ("openqasm", "include", "creg", "opaque", "gate", "barrier",
+                     "measure", "reset"):
             continue
         if low.startswith("qreg"):
             # qreg q[3]

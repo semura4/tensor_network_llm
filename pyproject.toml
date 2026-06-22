@@ -30,4 +30,4 @@ eo = "eo_pulse_ir.app:main"
 Repository = "https://github.com/semura4/tensor_network_llm"
 
 [tool.setuptools]
-packages = ["eo_pulse_ir", "eo_pulse_ir.sim"]
+packages = ["eo_pulse_ir", "eo_pulse_ir.sim", "eo_pulse_ir.adapters"]
