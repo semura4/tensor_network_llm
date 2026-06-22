@@ -71,3 +71,5 @@ jobs:
         run: python scripts/eo_bifurcation.py --res 24 -o out/bifurcation
       - name: Smoke-test the valley (spin x valley) layer
         run: python scripts/eo_valley.py -o out/valley
+      - name: Smoke-test the device calibration
+        run: python scripts/eo_calibrate.py --samples 120 -o out/calibration

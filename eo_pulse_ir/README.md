@@ -386,3 +386,17 @@ for re-scoring full gates without the 4ⁿ cost.
 python scripts/eo_valley.py -o out/valley
 ```
 
+### Device calibration (ideal → realistic)
+
+`sim/calibration.py` turns the closed-system simulator into a *calibrated
+predictor*: it fits a single quasi-static per-edge charge-noise parameter
+`sigma = dJ/J` so the validated CNOT reaches a reported reference fidelity
+(default 99%, HRL Si/SiGe). With that one number fixed (`sigma ≈ 0.9%`), the
+model **predicts** the other gates from their pulse counts — and the single-qubit
+prediction (~99.95%) matches the reported ~99.9%, i.e. the 1Q/2Q error hierarchy
+matches the real device with one fitted parameter.
+
+```bash
+python scripts/eo_calibrate.py --ref-fidelity 0.99 -o out/calibration
+```
+

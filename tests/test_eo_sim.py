@@ -146,6 +146,24 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestCalibration(unittest.TestCase):
+    def test_calibrate_and_predict_hierarchy(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.calibration import calibrate_sigma, mean_fidelity
+        cx = [(tuple(p.edge), p.area) for p in
+              synthesize(parse_circuit("qubits 2\ncx 0 1\n"))[0]]
+        h = [(tuple(p.edge), p.area) for p in
+             synthesize(parse_circuit("qubits 1\nh 0\n"))[0]]
+        sigma = calibrate_sigma(cx, 2, gates.CNOT, 0.99, n_samples=200)
+        self.assertTrue(0.0 < sigma < 0.05)
+        f_cx = mean_fidelity(cx, 2, gates.CNOT, sigma, 400)
+        f_h = mean_fidelity(h, 1, gates.H, sigma, 400)
+        self.assertAlmostEqual(f_cx, 0.99, delta=0.01)
+        self.assertGreater(f_h, f_cx)        # 1Q better than 2Q (fewer pulses)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestValley(unittest.TestCase):
     def test_aligned_valleys_match_spin_only(self):
         from eo_pulse_ir import parse_circuit, synthesize

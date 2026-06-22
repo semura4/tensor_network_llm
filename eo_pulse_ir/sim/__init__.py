@@ -9,6 +9,7 @@ Importing this subpackage requires numpy; the core ``eo_pulse_ir`` IR does not.
 
 from . import gates
 from .bifurcation import classify_critical, local_maxima, optima_sweep
+from .calibration import calibrate_sigma, mean_fidelity, predict_fidelities
 from .control import EOControlSystem
 from .encoding import DOTS_PER_QUBIT, logical_basis, triple_logical_states
 from .fidelity import average_gate_fidelity, gate_overlap, leakage
@@ -37,4 +38,5 @@ __all__ = [
     "ghz_target", "grape_state_prep", "state_prep_fidelity",
     "local_maxima", "classify_critical", "optima_sweep",
     "simulate_valley", "logical_block_valley", "two_dot_pulse", "effective_valley_areas",
+    "calibrate_sigma", "mean_fidelity", "predict_fidelities",
 ]
