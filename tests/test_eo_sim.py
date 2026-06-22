@@ -146,6 +146,40 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestStateSpace(unittest.TestCase):
+    def test_real_vector_field_exact(self):
+        from eo_pulse_ir.sim.operators import s_dot_s
+        from eo_pulse_ir.sim.statespace import real_generator, to_real
+        H = s_dot_s(3, 0, 1).astype(complex)
+        A = real_generator(H)
+        rng = np.random.default_rng(0)
+        psi = rng.normal(size=8) + 1j * rng.normal(size=8)
+        self.assertLess(np.max(np.abs(A @ to_real(psi) - to_real(-1j * H @ psi))), 1e-12)
+        self.assertLess(np.max(np.abs(A + A.T)), 1e-12)   # skew-symmetric
+
+    def test_flow_matches_operator(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim.control import EOControlSystem
+        from eo_pulse_ir.sim.encoding import logical_basis
+        from eo_pulse_ir.sim.statespace import StateSpaceSystem, to_real, from_real
+        p, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        ss, cs = StateSpaceSystem(2), EOControlSystem(2)
+        x0 = to_real(logical_basis(2)[:, 0].astype(complex))
+        xT = ss.integrate(x0, cs.word_from_pulses(p))
+        op = cs.propagator(cs.word_from_pulses(p)) @ logical_basis(2)[:, 0]
+        self.assertLess(np.max(np.abs(from_real(xT) - op)), 1e-9)
+
+    def test_logical_manifold_invariant_under_exchange(self):
+        from eo_pulse_ir.sim.encoding import logical_basis
+        from eo_pulse_ir.sim.statespace import StateSpaceSystem, flow
+        ss = StateSpaceSystem(1)
+        psi = logical_basis(1)[:, 0].astype(complex)
+        for edge, tau in [((0, 1), 0.7), ((1, 2), 1.1), ((0, 1), 0.5)]:
+            psi = flow(ss.hamiltonian(edge), psi, tau)
+        self.assertLess(ss.logical_manifold_defect(psi), 1e-10)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestMPS(unittest.TestCase):
     def test_init_matches_dense(self):
         from eo_pulse_ir.sim.encoding import logical_basis

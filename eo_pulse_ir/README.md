@@ -284,3 +284,20 @@ applies each exchange pulse by TEBD (merge → gate → truncated SVD).
 python scripts/eo_mps.py --chi-max 32 --max-qubits 12 -o out/mps
 ```
 
+### State-space dynamical-systems view
+
+`sim/statespace.py` gives the Schrödinger-flow picture: writing `psi = u + iv`
+and `x = [u; v]`, EO control is a **switched linear dynamical system**
+`dx/dt = A_m x` with constant skew-symmetric vector fields `A_m = -iH_m` (verified
+exact; the flow is a rotation on the state sphere). For one qubit this is the
+Bloch sphere with `db/dt = omega_m × b` — two rotation vector fields about axes
+120° apart, whose fixed points are the axis poles. The logical subspace is an
+**invariant manifold** of the exchange-only flow (defect = leakage stays 0); a
+field gradient breaks its invariance and the defect grows.
+`scripts/eo_statespace.py` draws the Bloch phase portrait and the
+manifold-defect-vs-time curves.
+
+```bash
+python scripts/eo_statespace.py -o out/statespace
+```
+

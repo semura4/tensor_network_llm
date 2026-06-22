@@ -16,6 +16,7 @@ from .lie import lie_closure, sector_indices, subspace_coupling
 from .mps import MPS, evolve_pulses
 from .operators import apply_pulse, exchange_propagator, s_dot_s, swap_matrix
 from .simulator import logical_block, simulate
+from .statespace import StateSpaceSystem, real_generator
 
 __all__ = [
     "gates",
@@ -26,4 +27,5 @@ __all__ = [
     "logical_block_field", "simulate_field", "zeeman_energies",
     "EOControlSystem", "lie_closure", "sector_indices", "subspace_coupling",
     "MPS", "evolve_pulses",
+    "StateSpaceSystem", "real_generator",
 ]
