@@ -146,6 +146,32 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestSynthesis(unittest.TestCase):
+    def test_layered_ansatz_structure(self):
+        from eo_pulse_ir.sim.synthesis import inter_edges, layered_ansatz
+        self.assertEqual(inter_edges(3), [(2, 3), (5, 6)])
+        self.assertGreater(len(layered_ansatz(3, 4)), len(layered_ansatz(3, 2)))
+
+    def test_design_single_qubit_gate(self):
+        from eo_pulse_ir.sim.synthesis import design_gate
+        rng = np.random.default_rng(2)
+        A = rng.normal(size=(2, 2)) + 1j * rng.normal(size=(2, 2))
+        U, _ = np.linalg.qr(A)
+        d = design_gate(U, 1, n_layers=2, restarts=8, steps=800, seed=0)
+        self.assertGreater(d.fidelity, 0.999)
+        self.assertEqual(d.num_qubits, 1)
+
+    def test_design_returns_simulatable_pulses(self):
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.fidelity import average_gate_fidelity
+        from eo_pulse_ir.sim.simulator import logical_block
+        from eo_pulse_ir.sim.synthesis import design_gate
+        d = design_gate(gates.Z, 1, n_layers=1, restarts=4, steps=400, seed=0)
+        M = logical_block(d.pulses, 1)
+        self.assertAlmostEqual(average_gate_fidelity(M, gates.Z), d.fidelity, places=6)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestStateSpace(unittest.TestCase):
     def test_real_vector_field_exact(self):
         from eo_pulse_ir.sim.operators import s_dot_s

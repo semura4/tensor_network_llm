@@ -301,3 +301,23 @@ manifold-defect-vs-time curves.
 python scripts/eo_statespace.py -o out/statespace
 ```
 
+### n-qubit gate design (optimal pulse control)
+
+`sim/synthesis.py` (`design_gate`) treats an n-qubit logical target as a boundary
+condition for the switched bilinear control system and *designs* the control word
+— a GRAPE-style scheme: a layered ansatz over all nearest-neighbour edges with the
+exact analytic-gradient optimiser. It works for any n (dense, so a few logical
+qubits): single-qubit gates compile exactly (F=1, ≤9 pulses), two-qubit gates need
+tens of pulses (CNOT F≈1 at 34), and the control cost grows with entangling
+content — a 3-qubit CCZ needs a deep layered sequence.
+
+The **"3-for-1 ⇒ quaternion"** structure is concrete here: the single-qubit
+control algebra `span{G₁, G₂, [G₁,G₂]}` has rank 3 = su(2) = the quaternion units
+{i, j, k}. Three dots make one logical qubit whose control algebra *is* the
+quaternions.
+
+```bash
+python scripts/eo_synthesis.py -o out/synthesis            # fast: 1q/2q + algebra
+python scripts/eo_synthesis.py --ccz-layers 8 -o out/synthesis   # also attempt 3q CCZ (slow)
+```
+

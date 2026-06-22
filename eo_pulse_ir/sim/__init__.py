@@ -17,6 +17,7 @@ from .mps import MPS, evolve_pulses
 from .operators import apply_pulse, exchange_propagator, s_dot_s, swap_matrix
 from .simulator import logical_block, simulate
 from .statespace import StateSpaceSystem, real_generator
+from .synthesis import GateDesign, design_gate, layered_ansatz
 
 __all__ = [
     "gates",
@@ -28,4 +29,5 @@ __all__ = [
     "EOControlSystem", "lie_closure", "sector_indices", "subspace_coupling",
     "MPS", "evolve_pulses",
     "StateSpaceSystem", "real_generator",
+    "design_gate", "layered_ansatz", "GateDesign",
 ]

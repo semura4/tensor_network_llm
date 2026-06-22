@@ -56,3 +56,5 @@ jobs:
         run: python scripts/eo_mps.py --chi-max 16 --max-qubits 8 -o out/mps
       - name: Smoke-test the state-space dynamical-systems view
         run: python scripts/eo_statespace.py -o out/statespace
+      - name: Smoke-test the n-qubit gate designer (1q/2q, fast)
+        run: python scripts/eo_synthesis.py -o out/synthesis
