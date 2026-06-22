@@ -48,6 +48,22 @@ def charge_noise_samples(n_edges: int, sigma: float, n_samples: int,
     return [1.0 + rng.normal(0.0, sigma, size=n_edges) for _ in range(n_samples)]
 
 
+def joint_valley_noise_samples(edges: Sequence[Edge], delta: float, sigma: float,
+                               n_samples: int, seed: int = 0) -> List[np.ndarray]:
+    """Joint ensemble: per sample, a valley-phase mismatch Δφ ~ U[-delta, delta]
+    (boundary areas * cos^2(Δφ/2)) AND per-edge charge noise (1 + N(0, sigma))."""
+    rng = np.random.default_rng(seed)
+    inter = np.array([is_inter_edge(tuple(e)) for e in edges])
+    out = []
+    for _ in range(n_samples):
+        s = np.ones(len(edges))
+        d = rng.uniform(-delta, delta)
+        s[inter] = np.cos(d / 2) ** 2
+        s = s * (1.0 + rng.normal(0.0, sigma, size=len(edges)))
+        out.append(s)
+    return out
+
+
 def ensemble_fidelity(areas, edges, num_qubits, target,
                       scales: Sequence[np.ndarray]) -> float:
     areas = np.asarray(areas, float)

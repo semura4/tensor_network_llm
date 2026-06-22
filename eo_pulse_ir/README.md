@@ -425,3 +425,14 @@ bottleneck; the same machinery accepts charge-noise ensembles for noise-robust g
 python scripts/eo_robust.py --spread 0.3 -o out/robust
 ```
 
+**Joint valley + charge-noise robustness.** `scripts/eo_robust_joint.py` designs a
+CNOT robust to *both* dominant real error channels at once — a valley-phase spread
+and **calibrated** charge noise (σ ≈ 0.9% dJ/J). Under the joint ensemble the
+robust gate holds **mean F ≈ 0.95 vs ≈ 0.83** for the standard gate, while staying
+charge-noise-tolerant at the nominal point — robustness to the real device's
+dominant errors at a calibrated noise level.
+
+```bash
+python scripts/eo_robust_joint.py --spread 0.3 -o out/robust_joint
+```
+

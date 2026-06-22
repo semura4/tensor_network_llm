@@ -163,6 +163,21 @@ class TestRobust(unittest.TestCase):
         rob_mean = ensemble_fidelity(robust, edges, 2, gates.CNOT, test)
         self.assertGreater(rob_mean, base_mean + 0.03)   # clear robustness advantage
 
+    def test_joint_valley_noise_robust(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.robust import (ensemble_fidelity,
+                                            joint_valley_noise_samples, robust_design)
+        cx, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        edges = [tuple(p.edge) for p in cx]
+        base = np.array([p.area for p in cx])
+        train = joint_valley_noise_samples(edges, 0.3 * np.pi, 0.01, 8, seed=1)
+        robust, _ = robust_design(edges, 2, gates.CNOT, train, x0=base, steps=120)
+        test = joint_valley_noise_samples(edges, 0.3 * np.pi, 0.01, 120, seed=99)
+        bm = ensemble_fidelity(base, edges, 2, gates.CNOT, test)
+        rm = ensemble_fidelity(robust, edges, 2, gates.CNOT, test)
+        self.assertGreater(rm, bm + 0.03)        # joint robustness advantage
+
     def test_inter_edge_detection(self):
         from eo_pulse_ir.sim.robust import is_inter_edge
         self.assertTrue(is_inter_edge((2, 3)))
