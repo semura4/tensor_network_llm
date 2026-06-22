@@ -121,28 +121,39 @@ python scripts/visualize.py
 - Gu, A. & Dao, T. (2023). *Mamba: Linear-Time Sequence Modeling with Selective State Spaces*.
 - Blelloch, G. (1990). *Prefix Sums and Their Applications*. Technical Report CMU-CS-90-190.
 
-## Subproject: EO Pulse Control IR
+## Subproject: EO Pulse Control IR — installable app + toolkit
 
-This repository also hosts [`eo_pulse_ir/`](eo_pulse_ir/README.md) — a
-dependency-free intermediate representation and control-cost evaluator for
-**exchange-only (EO) spin qubits**. It compiles a logical circuit (QASM-lite /
-OpenQASM-2 subset) into scheduled exchange pulses and emits an HRL-style
-cryo-CMOS instruction/pattern memory image, a pulse-timeline visualisation, and
-a control-cost report. An optional numpy-based physics layer (`eo_pulse_ir/sim/`)
-adds a real Heisenberg-exchange simulator with subspace fidelity/leakage and a
-pulse-parameter landscape explorer.
+This repository also hosts [`eo_pulse_ir/`](eo_pulse_ir/README.md), a control IR,
+physics simulator, and optimal-control / tensor-network toolkit for
+**exchange-only (EO) spin qubits**, packaged as the `eo` command-line app.
 
 ```bash
-python -m eo_pulse_ir.cli examples/bell.qasm -o out/bell
-python -m unittest tests.test_eo_pulse_ir
+pip install -e .            # core app (standard-library only)
+pip install -e .[sim]       # + physics simulator / control / tensor-network layers
 
-# optional physics simulator + landscape
-pip install -r requirements-sim.txt
-python scripts/eo_landscape.py --res 28 -o out/landscape
-python -m unittest tests.test_eo_sim
+eo compile   examples/ghz.qasm -o out/ghz     # IR pipeline -> CSV/JSON/SVG/report
+eo dashboard examples/ghz.qasm -o out/ghz     # self-contained HTML dashboard
+eo demo                                        # build artefacts + dashboards for examples
 ```
 
-See [`eo_pulse_ir/README.md`](eo_pulse_ir/README.md) for the model and scope.
+What it does (see [`eo_pulse_ir/README.md`](eo_pulse_ir/README.md) for details):
+
+- **Control IR** (dependency-free): QASM → EO native gates (CX/SWAP/CXSWAP, all
+  simulator-validated) → scheduled exchange pulses → control-cost metrics,
+  HRL-style cryo-CMOS instruction/pattern memory, pulse-timeline SVG, HTML dashboard.
+- **Physics simulator** (`sim/`, numpy): exact Heisenberg-exchange dynamics with
+  subspace fidelity/leakage; landscape, charge-noise Monte-Carlo, and field-gradient
+  studies.
+- **Control theory**: EO control as a switched bilinear / state-space dynamical
+  system — Lie-algebra controllability, Bloch phase portrait, DFS as an invariant
+  manifold.
+- **Quaternions**: single-qubit layer (SU(2) ≅ quaternions; exact analytic compiler).
+- **Optimal control + tensor networks**: analytic-gradient gate design, MPS/TEBD
+  evolution, and MPS-GRAPE (optimal control on a tensor network).
+
+```bash
+python -m unittest tests.test_eo_pulse_ir tests.test_eo_sim   # full test suite
+```
 
 ## License
 

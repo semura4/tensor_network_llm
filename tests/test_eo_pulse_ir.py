@@ -172,5 +172,24 @@ class TestPipeline(unittest.TestCase):
         self.assertIn("</svg>", svg)
 
 
+class TestApp(unittest.TestCase):
+    def test_dashboard_html(self):
+        from eo_pulse_ir.dashboard import build_dashboard
+        r = compile_circuit(parse_circuit("qubits 2\nh 0\ncx 0 1\n"))
+        doc = build_dashboard(r, title="bell")
+        self.assertIn("<!doctype html>", doc)
+        self.assertIn("<svg", doc)
+        self.assertIn("Control-cost metrics", doc)
+
+    def test_app_compile_and_dashboard(self):
+        import os
+        from eo_pulse_ir.app import main
+        example = os.path.join(os.path.dirname(__file__), "..", "examples", "bell.qasm")
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(main(["compile", example, "-o", d]), 0)
+            self.assertEqual(main(["dashboard", example, "-o", d]), 0)
+            self.assertTrue(os.path.getsize(os.path.join(d, "index.html")) > 0)
+
+
 if __name__ == "__main__":
     unittest.main()
