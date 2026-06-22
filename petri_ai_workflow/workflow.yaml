@@ -1,0 +1,51 @@
+# Minimal AI workflow modelled as a Petri net.
+#
+# Pipeline:
+#   paper_loaded -> hypothesis_extracted -> code_generated
+#                -> test_passed -> human_approved -> committed
+#
+# The `commit` transition has an extra input place (`human_approved`) so that
+# a token can only reach `committed` after a human approval token exists.
+
+name: ai_research_workflow
+
+# Places (states a token can occupy).
+places:
+  - paper_loaded
+  - hypothesis_extracted
+  - code_generated
+  - test_passed
+  - human_approved
+  - committed
+
+# Where the initial token(s) start.
+initial_marking:
+  paper_loaded: 1
+
+# Transitions (allowed state moves).
+transitions:
+  - name: extract_hypothesis
+    action: extract_hypothesis
+    input: [paper_loaded]
+    output: [hypothesis_extracted]
+
+  - name: generate_code
+    action: generate_code
+    input: [hypothesis_extracted]
+    output: [code_generated]
+
+  - name: run_tests
+    action: run_tests
+    input: [code_generated]
+    output: [test_passed]
+
+  - name: request_approval
+    action: request_human_approval
+    input: [test_passed]
+    output: [human_approved]
+
+  - name: commit
+    action: commit_changes
+    # Requires both a test_passed-derived approval token in human_approved.
+    input: [human_approved]
+    output: [committed]
