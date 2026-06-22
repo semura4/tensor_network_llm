@@ -14,6 +14,7 @@ from .fidelity import average_gate_fidelity, gate_overlap, leakage
 from .field import logical_block_field, simulate_field, zeeman_energies
 from .lie import lie_closure, sector_indices, subspace_coupling
 from .mps import MPS, evolve_pulses
+from .mps_grape import ghz_target, grape_state_prep, state_prep_fidelity
 from .operators import apply_pulse, exchange_propagator, s_dot_s, swap_matrix
 from .simulator import logical_block, simulate
 from .statespace import StateSpaceSystem, real_generator
@@ -30,4 +31,5 @@ __all__ = [
     "MPS", "evolve_pulses",
     "StateSpaceSystem", "real_generator",
     "design_gate", "layered_ansatz", "GateDesign",
+    "ghz_target", "grape_state_prep", "state_prep_fidelity",
 ]

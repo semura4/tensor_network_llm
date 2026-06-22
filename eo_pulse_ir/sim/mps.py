@@ -124,6 +124,64 @@ class MPS:
             psi = np.tensordot(psi, t, axes=(psi.ndim - 1, 0))
         return psi.reshape(-1)
 
+    # ---- algebra (for building targets and gradients) ----------------------
+    def scaled(self, c: complex) -> "MPS":
+        out = self.copy()
+        out.A[0] = out.A[0] * c
+        return out
+
+    def normalized(self) -> "MPS":
+        return self.scaled(1.0 / self.norm())
+
+    def add(self, other: "MPS") -> "MPS":
+        """MPS of |self> + |other> (block-diagonal bonds; compress afterwards)."""
+        n = self.n
+        T = []
+        for i in range(n):
+            Aa, Ab = self.A[i], other.A[i]
+            la, d, ra = Aa.shape
+            lb, _, rb = Ab.shape
+            if i == 0:
+                C = np.zeros((1, d, ra + rb), complex)
+                C[:, :, :ra] = Aa; C[:, :, ra:] = Ab
+            elif i == n - 1:
+                C = np.zeros((la + lb, d, 1), complex)
+                C[:la, :, :] = Aa; C[la:, :, :] = Ab
+            else:
+                C = np.zeros((la + lb, d, ra + rb), complex)
+                C[:la, :, :ra] = Aa; C[la:, :, ra:] = Ab
+            T.append(C)
+        return MPS(T)
+
+    def compress(self, chi_max: int = 32, tol: float = 1e-12) -> "MPS":
+        """Bring to a compact form (left-canonical sweep, then truncating SVD sweep)."""
+        n = self.n
+        for i in range(n - 1):
+            l, d, r = self.A[i].shape
+            Q, R = np.linalg.qr(self.A[i].reshape(l * d, r))
+            self.A[i] = Q.reshape(l, d, -1)
+            self.A[i + 1] = np.tensordot(R, self.A[i + 1], axes=(1, 0))
+        for i in range(n - 1, 0, -1):
+            l, d, r = self.A[i].shape
+            U, S, Vh = np.linalg.svd(self.A[i].reshape(l, d * r), full_matrices=False)
+            k = min(chi_max, max(1, int(np.count_nonzero(S > tol))))
+            U, S, Vh = U[:, :k], S[:k], Vh[:k]
+            self.A[i] = Vh.reshape(k, d, r)
+            self.A[i - 1] = np.tensordot(self.A[i - 1], U * S, axes=(2, 0))
+        return self
+
+    def local_operator_overlap(self, other: "MPS", gate4: np.ndarray, i: int) -> complex:
+        """<other| gate4_{i,i+1} |self>  (gate applied untruncated)."""
+        tmp = self.copy()
+        tmp.apply_two_site(gate4, i, chi_max=10 ** 9, tol=0.0)
+        return tmp.overlap(other)
+
+
+def two_site_sdots() -> np.ndarray:
+    """The 4x4 exchange operator S_i.S_j = (SWAP - I/2)/2 on two spins."""
+    SWAP = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], complex)
+    return (SWAP - 0.5 * np.eye(4)) / 2.0
+
 
 def evolve_pulses(mps: MPS, pulses, chi_max: int = 64, tol: float = 1e-12
                   ) -> Tuple[MPS, int, float]:

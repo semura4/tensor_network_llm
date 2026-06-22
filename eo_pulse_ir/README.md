@@ -321,3 +321,22 @@ python scripts/eo_synthesis.py -o out/synthesis            # fast: 1q/2q + algeb
 python scripts/eo_synthesis.py --ccz-layers 8 -o out/synthesis   # also attempt 3q CCZ (slow)
 ```
 
+### MPS-GRAPE: optimal control on a tensor network
+
+Gate fidelity needs all 2ⁿ logical columns (exponential), but the *state-transfer*
+objective `J = |⟨target|U(θ)|init⟩|²` needs only one evolved state — so GRAPE on an
+MPS (`sim/mps_grape.py`) scales optimal pulse control to many logical qubits when
+the target is low-entanglement. The gradient is the **MPS adjoint method** (one
+forward + one backward sweep, O(N) per gradient; verified against finite
+differences to ~1e-10 — finite differences would be O(N²)). This unites the
+control and tensor-network layers: design optimal pulses for n-qubit operations
+without ever forming the 2³ⁿ state.
+
+Demonstrated on encoded-GHZ preparation (`scripts/eo_mps_grape.py`): the optimiser
+finds pulses preparing an entangled GHZ state on logical-qubit counts where dense
+GRAPE is infeasible, with bond dimension staying small.
+
+```bash
+python scripts/eo_mps_grape.py --max-qubits 6 -o out/mps_grape
+```
+

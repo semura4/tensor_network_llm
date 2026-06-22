@@ -58,3 +58,5 @@ jobs:
         run: python scripts/eo_statespace.py -o out/statespace
       - name: Smoke-test the n-qubit gate designer (1q/2q, fast)
         run: python scripts/eo_synthesis.py -o out/synthesis
+      - name: Smoke-test MPS-GRAPE (tensor-network optimal control)
+        run: python scripts/eo_mps_grape.py --max-qubits 3 --steps 120 --restarts 2 -o out/mps_grape

@@ -146,6 +146,46 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestMPSGrape(unittest.TestCase):
+    def test_ghz_target_matches_dense(self):
+        from eo_pulse_ir.sim.encoding import logical_basis
+        from eo_pulse_ir.sim.mps_grape import ghz_target
+        g = ghz_target(3)
+        L = logical_basis(3)
+        ghz = L[:, 0] + L[:, -1]
+        ghz /= np.linalg.norm(ghz)
+        self.assertGreater(abs(np.vdot(ghz, g.to_dense())) ** 2, 1 - 1e-9)
+
+    def test_adjoint_gradient_matches_fd(self):
+        from eo_pulse_ir.sim.mps import MPS
+        from eo_pulse_ir.sim.mps_grape import (fidelity_and_grad, ghz_target,
+                                               state_prep_fidelity)
+        init, tgt = MPS.logical_register([0, 0]), ghz_target(2)
+        edges = [(1, 2), (0, 1), (2, 3), (3, 4), (2, 3)]
+        rng = np.random.default_rng(0)
+        a = rng.uniform(0, 2 * np.pi, size=len(edges))
+        _, ga = fidelity_and_grad(init, tgt, a, edges, chi_max=32)
+        gfd = np.zeros(len(edges))
+        eps = 1e-6
+        for k in range(len(edges)):
+            ap = a.copy(); ap[k] += eps
+            am = a.copy(); am[k] -= eps
+            gfd[k] = (state_prep_fidelity(init, tgt, ap, edges, 32)
+                      - state_prep_fidelity(init, tgt, am, edges, 32)) / (2 * eps)
+        self.assertLess(np.max(np.abs(ga - gfd)), 1e-6)
+
+    def test_grape_prepares_bell_encoded(self):
+        from eo_pulse_ir.sim.mps import MPS
+        from eo_pulse_ir.sim.mps_grape import ghz_target, grape_state_prep
+        from eo_pulse_ir.sim.synthesis import layered_ansatz
+        init, tgt = MPS.logical_register([0, 0]), ghz_target(2)
+        edges = layered_ansatz(2, 3)
+        _, F = grape_state_prep(init, tgt, edges, chi_max=16, steps=200,
+                                restarts=3, seed=1)
+        self.assertGreater(F, 0.9)
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestSynthesis(unittest.TestCase):
     def test_layered_ansatz_structure(self):
         from eo_pulse_ir.sim.synthesis import inter_edges, layered_ansatz
