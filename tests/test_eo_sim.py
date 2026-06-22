@@ -146,6 +146,49 @@ class TestOptimizeAndIRBridge(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestValley(unittest.TestCase):
+    def test_aligned_valleys_match_spin_only(self):
+        from eo_pulse_ir import parse_circuit, synthesize
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.valley import simulate_valley
+        p, _ = synthesize(parse_circuit("qubits 2\ncx 0 1\n"))
+        r = simulate_valley(p, 2, valley_phase=0.0, e_vs=5.0, target=gates.CNOT)
+        self.assertGreater(r["fidelity"], 0.9999)        # matches spin-only CNOT
+        self.assertLess(r["valley_leakage"], 1e-6)
+
+    def test_phase_mismatch_leaks(self):
+        import numpy as np
+        from eo_pulse_ir.sim.valley import two_dot_pulse
+        from eo_pulse_ir.sim.fidelity import leakage
+        L = np.zeros((16, 4))
+        for k, (sa, sb) in enumerate([(0, 0), (0, 1), (1, 0), (1, 1)]):
+            L[(2 * sa) * 4 + (2 * sb), k] = 1.0
+        M = L.conj().T @ two_dot_pulse(np.pi / 2, np.pi / 2, 0.0, 0.0) @ L
+        self.assertGreater(leakage(M), 0.1)
+
+    def test_large_evs_suppresses_leakage(self):
+        import numpy as np
+        from eo_pulse_ir.sim.valley import two_dot_pulse
+        from eo_pulse_ir.sim.fidelity import leakage
+        L = np.zeros((16, 4))
+        for k, (sa, sb) in enumerate([(0, 0), (0, 1), (1, 0), (1, 1)]):
+            L[(2 * sa) * 4 + (2 * sb), k] = 1.0
+        def lk(evs):
+            M = L.conj().T @ two_dot_pulse(np.pi / 2, np.pi / 2, evs, evs) @ L
+            return leakage(M)
+        self.assertLess(lk(10.0), lk(0.0))               # E_VS >> J protects
+
+    def test_effective_areas_null_at_pi(self):
+        import numpy as np
+        from eo_pulse_ir.sim.valley import effective_valley_areas
+        pulses = [((2, 3), 1.0)]                          # an inter edge
+        out0 = effective_valley_areas(pulses, [0, 0, 0, 0, 0, 0])
+        outp = effective_valley_areas(pulses, [0, 0, 0, np.pi, np.pi, np.pi])
+        self.assertAlmostEqual(out0[0][1], 1.0, places=6)        # aligned: unchanged
+        self.assertLess(outp[0][1], 1e-9)                        # Δφ=π: nulled
+
+
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestBifurcation(unittest.TestCase):
     def test_local_maxima_count(self):
         from eo_pulse_ir.sim.bifurcation import local_maxima

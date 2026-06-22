@@ -20,6 +20,8 @@ from .operators import apply_pulse, exchange_propagator, s_dot_s, swap_matrix
 from .simulator import logical_block, simulate
 from .statespace import StateSpaceSystem, real_generator
 from .synthesis import GateDesign, design_gate, layered_ansatz
+from .valley import (effective_valley_areas, logical_block_valley,
+                     simulate_valley, two_dot_pulse)
 
 __all__ = [
     "gates",
@@ -34,4 +36,5 @@ __all__ = [
     "design_gate", "layered_ansatz", "GateDesign",
     "ghz_target", "grape_state_prep", "state_prep_fidelity",
     "local_maxima", "classify_critical", "optima_sweep",
+    "simulate_valley", "logical_block_valley", "two_dot_pulse", "effective_valley_areas",
 ]

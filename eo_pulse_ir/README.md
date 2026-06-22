@@ -361,3 +361,28 @@ the dynamical-systems view to the noise/valley robustness goals.
 python scripts/eo_bifurcation.py --res 72 -o out/bifurcation
 ```
 
+### Valley degree of freedom (spin ⊗ valley)
+
+`sim/valley.py` extends the pure-spin model with a per-dot **valley pseudo-spin**
+(4-level dots), so the simulator captures the silicon-specific physics from
+[`docs/valley_splitting_research.md`](../docs/valley_splitting_research.md): an
+exchange pulse is the physical electron swap (spin **and** valley), the two dots'
+valley frames differ by a **valley phase** Δφ, and a per-dot **valley splitting**
+`E_VS` penalises the excited valley during the pulse. Reproduced (`scripts/eo_valley.py`):
+
+- **consistency** — with aligned valley phases it recovers the spin-only model
+  exactly (validated CNOT F = 0.99999999);
+- **E_VS ≫ J** — boundary-exchange valley leakage falls from 0.38 (E_VS=0) to ~0
+  as E_VS/J grows (the literature's core requirement, emergent);
+- valley-phase mismatch causes leakage, suppressed by large E_VS;
+- but a phase mismatch also **detunes** the gate, so the CNOT fidelity stays low
+  until the valley phase is aligned (or pulses re-calibrated) — i.e. both large
+  *and* uniform E_VS and valley-phase control are needed.
+
+`effective_valley_areas` gives a cheap spin-only proxy (`J_eff = J cos²(Δφ/2)`)
+for re-scoring full gates without the 4ⁿ cost.
+
+```bash
+python scripts/eo_valley.py -o out/valley
+```
+
