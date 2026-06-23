@@ -429,16 +429,37 @@ class TestSingleSpinQSoC(unittest.TestCase):
         cryo = interface_bandwidth_gbps(4096, ctrl, work, "cryo")
         self.assertGreater(rt, 1000.0 * cryo)  # orders of magnitude less traffic
 
-    def test_crossovers_ordered(self):
+    def test_cold_power_is_binding_at_subkelvin(self):
         from eo_pulse_ir.singlespin import (crossover_wire_limit,
                                             crossover_cold_power)
         ctrl, _work, _hw = self._models()
         rt = crossover_wire_limit(ctrl, "roomtemp")
-        xb = crossover_wire_limit(ctrl, "crossbar")
         power = crossover_cold_power(ctrl)
-        # room-temp dies first, crossbar later, cryo cold-power last
-        self.assertLess(rt, xb)
-        self.assertLess(xb, power)
+        # at the default sub-K operating point, cold power bites well before wiring
+        self.assertLess(power, rt)
+
+    def test_cooling_budget_scales_t_squared(self):
+        import dataclasses
+        from eo_pulse_ir.singlespin import SingleSpinControl
+        cold = SingleSpinControl(operating_temp_k=0.3)
+        hot = dataclasses.replace(cold, operating_temp_k=0.6)
+        # double the temperature -> ~4x cooling power (T^2)
+        self.assertAlmostEqual(hot.cooling_budget_w / cold.cooling_budget_w, 4.0, places=6)
+
+    def test_hotter_operation_relaxes_cold_power_wall(self):
+        import dataclasses
+        from eo_pulse_ir.singlespin import SingleSpinControl, crossover_cold_power
+        cold = SingleSpinControl(operating_temp_k=0.3)
+        hot = dataclasses.replace(cold, operating_temp_k=4.0)
+        self.assertGreater(crossover_cold_power(hot), crossover_cold_power(cold))
+
+    def test_required_power_drops_with_scale(self):
+        from eo_pulse_ir.singlespin import required_cold_power_w_per_qubit
+        ctrl, _work, _hw = self._models()
+        p_1k = required_cold_power_w_per_qubit(1000, ctrl)
+        p_1m = required_cold_power_w_per_qubit(1_000_000, ctrl)
+        # 1000x more qubits -> 1000x tighter per-qubit power budget
+        self.assertAlmostEqual(p_1k / p_1m, 1000.0, places=3)
 
 
 if __name__ == "__main__":

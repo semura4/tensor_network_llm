@@ -38,6 +38,7 @@ from eo_pulse_ir.hardware import HardwareConfig
 from eo_pulse_ir.singlespin import (
     SingleSpinControl, Workload, qsoc_budget, distinct_pattern_words,
     crossover_wire_limit, crossover_cold_power, cross_check_against_build_memory,
+    max_qubits_cold_power, required_cold_power_w_per_qubit,
 )
 
 
@@ -89,10 +90,19 @@ def main(argv=None) -> int:
     n_wire_rt = crossover_wire_limit(ctrl, "roomtemp")
     n_wire_xb = crossover_wire_limit(ctrl, "crossbar")
     n_power = crossover_cold_power(ctrl)
+    budget_w = ctrl.cooling_budget_w
 
-    print(f"[qsoc] room-temp wire limit at N={n_wire_rt}, "
-          f"crossbar at N={n_wire_xb}, cryo cold-power limit at N={_fmt(n_power)}",
+    print(f"[qsoc] operating T={ctrl.operating_temp_k} K -> cooling budget "
+          f"{budget_w*1e3:.1f} mW", flush=True)
+    print(f"[qsoc] room-temp wire limit N={n_wire_rt}, crossbar N={_fmt(n_wire_xb)}, "
+          f"cold-power limit N={_fmt(n_power)} @ {ctrl.cold_power_uW_per_qubit:.0f} uW/qubit",
           flush=True)
+
+    # per-qubit cold-power scenarios (today -> target) and the required power for scale
+    power_scenarios_uw = [10000.0, 1000.0, 100.0, 10.0, 1.0, 0.1, 0.01]
+    scenario_rows = [(p, max_qubits_cold_power(ctrl, p * 1e-6)) for p in power_scenarios_uw]
+    req_1k = required_cold_power_w_per_qubit(1000, ctrl)
+    req_1m = required_cold_power_w_per_qubit(1_000_000, ctrl)
 
     # --- plots (numpy SVG helper) ---
     try:
@@ -135,6 +145,16 @@ def main(argv=None) -> int:
             xlabel="qubits N", ylabel="words", logx=True, logy=True),
             os.path.join(args.out_dir, "qsoc_cold_memory.svg"))
 
+        # 4. cold power vs the sub-K cooling budget (the binding wall)
+        write_svg(line_plot_svg(
+            [(f"today ~10 mW/qubit", xs, [n * 10e-3 for n in ns]),
+             (f"near-term 1 mW/qubit", xs, [n * 1e-3 for n in ns]),
+             (f"target 10 nW/qubit", xs, [n * 10e-9 for n in ns]),
+             (f"{ctrl.operating_temp_k} K cooling budget", xs, [budget_w for _ in ns])],
+            title=f"Cold dissipation vs cooling budget at {ctrl.operating_temp_k} K",
+            xlabel="qubits N", ylabel="cold power (W)", logx=True, logy=True),
+            os.path.join(args.out_dir, "qsoc_cold_power.svg"))
+
     # --- results.json ---
     results = {
         "params": {
@@ -145,8 +165,13 @@ def main(argv=None) -> int:
                           "dac_bits", "vc")},
         },
         "cross_check": check,
+        "operating_temp_k": ctrl.operating_temp_k,
+        "cooling_budget_w": budget_w,
         "crossovers": {"roomtemp_wire": n_wire_rt, "crossbar_wire": n_wire_xb,
                        "cryo_cold_power": n_power},
+        "cold_power_scenarios": [
+            {"per_qubit_uw": p, "max_qubits": n} for p, n in scenario_rows],
+        "required_cold_power_w_per_qubit": {"N_1e3": req_1k, "N_1e6": req_1m},
         "pattern_bank": distinct_pattern_words(ctrl),
         "sweep": rows,
     }
@@ -162,9 +187,11 @@ def main(argv=None) -> int:
         "",
         "First-order control-plane budget for a single-electron-spin silicon",
         "processor (1 dot = 1 qubit, EDSR 1-qubit gates, baseband exchange CZ) —",
-        "contribution item #1 from `docs/blueqat_contribution_memo.md`.  It locates",
-        "the room-temperature -> cryo-CMOS crossover behind Blueqat's 2027–28",
-        "interconnect-wall roadmap.",
+        "contribution item #1 from `docs/blueqat_contribution_memo.md`.  It scales",
+        "the control plane with qubit count and finds that at the **sub-K operating",
+        f"temperature spin qubits actually need (~{ctrl.operating_temp_k} K)**, the",
+        "binding constraint is **cold power**, not the room-temp wiring wall behind",
+        "Blueqat's 2027–28 interconnect roadmap.",
         "",
         "## Anchor to the controller-memory model",
         "",
@@ -175,15 +202,42 @@ def main(argv=None) -> int:
         f"(`build_memory` cross-check: {check['all_outputs_single_pattern']}), which",
         "is why the cold waveform bank is constant in N.",
         "",
-        "## Crossovers",
+        "## The binding constraint: cold power at the real operating temperature",
+        "",
+        f"High-fidelity spin qubits need **~{ctrl.operating_temp_k} K** (sub-K), not",
+        "the 1–4 K \"hot qubit\" regime.  Dilution-fridge cooling power scales ~T^2",
+        f"(~1 mW @ 100 mK), so at {ctrl.operating_temp_k} K the budget is only",
+        f"**~{budget_w*1e3:.0f} mW** — and today's cryo-CMOS dissipates ~9–10 mW",
+        "*per channel*.  Co-locating control at the qubit stage is therefore",
+        "thermally bound long before wiring bites:",
+        "",
+        "| per-qubit cold power | max qubits @ "
+        f"{ctrl.operating_temp_k} K | note |",
+        "|---:|---:|---|",
+    ]
+    notes = {10000.0: "today's full cryo-CMOS controller (~10 mW/ch)",
+             1000.0: "near-term target", 100.0: "aggressive", 10.0: "very aggressive",
+             1.0: "research target", 0.1: "≈ thermal/Landauer floor regime",
+             0.01: "≈ thermal/Landauer floor regime"}
+    for p, nmax in scenario_rows:
+        lines.append(f"| {_fmt(p*1e-6*1e6)} µW | {_fmt(nmax)} | {notes.get(p,'')} |")
+    lines += [
+        "",
+        f"To reach **1k qubits** at {ctrl.operating_temp_k} K needs ≤ "
+        f"**{req_1k*1e6:.2f} µW/qubit**; **1M qubits** needs ≤ "
+        f"**{req_1m*1e9:.1f} nW/qubit** — a ~10^5–10^6× reduction from today's",
+        "per-channel dissipation.  *This*, not wiring, is the dominant wall, and it",
+        "is the case for moving as much switching activity off the cold stage as",
+        "possible (shared pattern replay, minimal cold dynamic power).",
+        "",
+        "## Secondary: the wiring wall (room-temp electronics)",
         "",
         f"- **Room-temp (1 analog line / control)** exceeds the "
         f"{ctrl.fridge_port_limit}-port fridge limit at **N = {n_wire_rt}**.",
         f"- **Crossbar (~{ctrl.crossbar_line_coeff:.0f}·√N rails)** pushes that to "
-        f"**N = {_fmt(n_wire_xb)}**, but forces shared-line operations (parallelism loss).",
-        f"- **Cryo-CMOS QSoC** keeps the line count ~constant; its wall is **cold",
-        f"  power**: {ctrl.cold_power_uW_per_qubit:.0f} µW/qubit vs a "
-        f"{ctrl.cold_cooling_budget_W:.0f} W stage budget -> **N = {_fmt(n_power)}**.",
+        f"**N = {_fmt(n_wire_xb)}**, at the cost of shared-line operations (parallelism loss).",
+        f"- **Cryo-CMOS QSoC** keeps the line count ~constant (shared digital bus),",
+        "  converting the wiring problem into the cold-power problem above.",
         "",
         "## Scaling table",
         "",
@@ -209,20 +263,30 @@ def main(argv=None) -> int:
         "",
         "## Reading",
         "",
-        "1. **The wiring wall is real and near.** A one-line-per-control room-temp",
-        f"   architecture saturates a {ctrl.fridge_port_limit}-line fridge at only",
-        f"   **N ≈ {n_wire_rt}** qubits.  This is the bottleneck Blueqat's roadmap",
-        "   names; it is a wiring/interconnect limit, not a qubit-physics limit.",
+        f"1. **Cold power at {ctrl.operating_temp_k} K is the dominant wall.** The",
+        "   sub-K cooling budget is ~mW while today's cold control is ~mW *per",
+        f"   channel*, so co-located control tops out at **N ≈ {_fmt(n_power)}** at",
+        f"   {ctrl.cold_power_uW_per_qubit:.0f} µW/qubit.  Reaching useful scale",
+        f"   demands **nW-class per-qubit cold dissipation** ({req_1m*1e9:.1f} nW for",
+        "   1M qubits).  Either control runs ultra-low-power at the qubit stage, or",
+        "   it splits to a warmer (4 K, ~1 W) stage and pays a 0.3 K↔4 K wiring and",
+        "   heat-leak cost instead — the real architectural fork.",
         "",
-        "2. **Cryo-CMOS converts a wiring problem into a memory+power problem.**",
-        "   Moving waveform generation cold makes the cross-interface traffic the",
-        "   readout bit-stream (orders of magnitude below sample streaming) and the",
-        "   line count a shared digital bus (constant in N).  The new constraints",
-        f"   are the cold waveform bank ({bank['total']} words — **constant in N**,",
-        "   because all qubits share identical gate shapes) and cold power, which",
-        f"   sets the genuine long-term wall at **N ≈ {_fmt(n_power)}**.",
+        "2. **The wiring wall is the secondary, warmer-stage limit.** A",
+        f"   one-line-per-control room-temp architecture saturates a "
+        f"{ctrl.fridge_port_limit}-line fridge at **N ≈ {n_wire_rt}**.  Cryo-CMOS",
+        "   removes it by replaying cold-resident patterns — but only by taking on",
+        "   the cold-power constraint above.",
         "",
-        "3. **Instruction memory sets the reload cadence, not the qubit ceiling.**",
+        "3. **The QSoC primitives directly target cold power.** Moving waveform",
+        "   generation cold makes cross-interface traffic the readout bit-stream",
+        "   (orders below sample streaming) and the line count a shared digital bus.",
+        f"   The cold waveform bank stays **constant in N** ({bank['total']} words —",
+        "   all qubits share identical gate shapes), and shared low-duty-cycle",
+        "   replay minimises cold *dynamic* power — exactly the lever the thermal",
+        "   wall calls for.",
+        "",
+        "4. **Instruction memory sets the reload cadence, not the qubit ceiling.**",
         "   Instruction words grow ~linearly with N; against a fixed cold",
         f"   instruction memory ({hw.instruction_memory_words} words) this caps how",
         "   many qubits×cycles run before a reload, a throughput knob rather than a",

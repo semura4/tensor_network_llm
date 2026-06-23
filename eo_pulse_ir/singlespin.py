@@ -80,12 +80,26 @@ class SingleSpinControl:
     # --- cryo-CMOS QSoC interface ---
     cryo_digital_bus_lines: int = 40          # shared data+addr+ctrl bus across the cold I/O
     cryo_power_clock_lines: int = 20          # shared power rails + clock/reference lines
-    cold_power_uW_per_qubit: float = 100.0    # cryo-CMOS dissipation budgeted per qubit
-    cold_cooling_budget_W: float = 1.0        # available cooling at the 1–4 K control stage
+
+    # --- cold-stage thermal budget (the binding constraint at sub-K) ---
+    # Spin qubits need ~0.3 K (sub-K) for high-fidelity operation; co-locating
+    # control there means a *tiny* cooling budget.  Dilution-fridge cooling power
+    # scales ~ T^2, anchored at ~1 mW @ 100 mK (commercial; ~2 mW best-in-class).
+    operating_temp_k: float = 0.3             # the temperature qubits actually need
+    cooling_ref_w: float = 1.0e-3             # cooling power at the reference temperature
+    cooling_ref_temp_k: float = 0.1           # reference (100 mK)
+    # Per-control-channel cold dissipation.  Today's cryo-CMOS controllers run
+    # ~9-10 mW/channel (RF front end + logic); 1 mW/qubit is a near-term target.
+    cold_power_uW_per_qubit: float = 1000.0
 
     # --- fridge / interface limits ---
     fridge_port_limit: int = 500              # practical analog-coax count at the cold plate
     interface_bandwidth_limit_gbps: float = 1000.0  # aggregate 300 K -> cold data budget
+
+    @property
+    def cooling_budget_w(self) -> float:
+        """Available cooling at ``operating_temp_k`` (dilution-fridge T^2 scaling)."""
+        return self.cooling_ref_w * (self.operating_temp_k / self.cooling_ref_temp_k) ** 2
 
     # --- readout ---
     readout_bits_per_qubit: float = 1.0       # classified syndrome bit per qubit per cycle
@@ -242,6 +256,8 @@ def qsoc_budget(n: int, ctrl: SingleSpinControl, work: Workload,
         }
     out["cryo"]["cold_memory"] = cold_memory(n, ctrl, work, hw)
     out["cryo"]["cold_power_w"] = cold_power_w(n, ctrl)
+    out["cryo"]["cooling_budget_w"] = ctrl.cooling_budget_w
+    out["cryo"]["cold_power_fits"] = cold_power_w(n, ctrl) <= ctrl.cooling_budget_w
     return out
 
 
@@ -256,11 +272,25 @@ def crossover_wire_limit(ctrl: SingleSpinControl, mode: str = "roomtemp") -> int
 
 
 def crossover_cold_power(ctrl: SingleSpinControl) -> int:
-    """Smallest N at which cryo-CMOS cold dissipation exceeds the cooling budget."""
+    """Largest N whose cold dissipation fits the cooling budget at ``operating_temp_k``."""
     per = ctrl.cold_power_uW_per_qubit * 1e-6
     if per <= 0:
         return -1
-    return int(ctrl.cold_cooling_budget_W / per)
+    return int(ctrl.cooling_budget_w / per)
+
+
+def max_qubits_cold_power(ctrl: SingleSpinControl, per_qubit_w: float) -> int:
+    """Max N supportable at ``operating_temp_k`` given per-qubit cold dissipation (W)."""
+    if per_qubit_w <= 0:
+        return -1
+    return int(ctrl.cooling_budget_w / per_qubit_w)
+
+
+def required_cold_power_w_per_qubit(n_target: int, ctrl: SingleSpinControl) -> float:
+    """Per-qubit cold dissipation (W) needed to reach ``n_target`` at ``operating_temp_k``."""
+    if n_target <= 0:
+        return float("inf")
+    return ctrl.cooling_budget_w / n_target
 
 
 # ---------------------------------------------------------------------------
