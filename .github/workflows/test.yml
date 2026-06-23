@@ -87,3 +87,5 @@ jobs:
         run: python scripts/eo_grid_robust.py --quick -n 4 -o out/grid_robust
       - name: Smoke-test leakage accumulation judgment experiment
         run: python scripts/eo_leakage_accumulation.py --quick -o out/leakage_accumulation
+      - name: Smoke-test gate adiabaticity vs valley leakage study
+        run: python scripts/eo_gate_adiabaticity.py --quick -o out/gate_adiabaticity

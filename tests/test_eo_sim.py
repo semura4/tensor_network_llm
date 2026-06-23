@@ -677,5 +677,31 @@ class TestLeakageAccumulation(unittest.TestCase):
         self.assertLess(leaks[-1], 100 * leaks[0])
 
 
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestGateAdiabaticity(unittest.TestCase):
+    def _leak(self, T, profile):
+        import importlib.util
+        path = os.path.join(os.path.dirname(__file__), "..", "scripts",
+                            "eo_gate_adiabaticity.py")
+        spec = importlib.util.spec_from_file_location("eo_gate_adiabaticity", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.ramped_cz_leakage(np.pi, T, 120, 0.2 * np.pi, 5.0, profile)
+
+    def test_slow_ramp_suppresses_leakage(self):
+        fast = self._leak(1.0, "sin2")
+        slow = self._leak(100.0, "sin2")
+        # adiabatic: a slower gate leaks far less to the excited valley
+        self.assertLess(slow, fast)
+        self.assertLess(slow, 1e-6)
+
+    def test_smooth_ramp_beats_square(self):
+        T = 30.0
+        sin2 = self._leak(T, "sin2")
+        square = self._leak(T, "square")
+        # smooth (adiabatic) envelope leaks less than a hard pulse of equal duration
+        self.assertLess(sin2, square)
+
+
 if __name__ == "__main__":
     unittest.main()
