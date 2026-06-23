@@ -128,8 +128,10 @@ gradient chains through the affine area transform; optimisation is Adam ascent
 seeded from the validated CNOT.
 
 **The strongest objection, answered.** "Why not just use the shortest known exact
-gate (DiVincenzo 19-pulse / Fong–Wandzura 22-pulse), which accrues less
-charge-noise error?" We answer it directly (`scripts/eo_robust_compare.py`):
+gate (DiVincenzo 19-pulse / Fong–Wandzura 22-pulse, or the recent 2-D-layout
+sequences of Chadwick et al., Phys. Rev. A 111, 052616 (2025), arXiv:2412.14918,
+≈ 28-pulse CX), which accrue less charge-noise error?" We answer it directly
+(`scripts/eo_robust_compare.py`):
 
 | gate | pulses | mean F (joint) | F at Δφ=0 (charge only) |
 |---|---:|---:|---:|
@@ -145,9 +147,10 @@ Reading:
   the joint ensemble (0.926 vs 0.826) — confirming that fewer pulses help on the
   charge axis.
 - The **charge-noise-free ceiling** removes charge noise entirely (σ = 0). This
-  upper-bounds *any* shorter exact sequence — including DiVincenzo 19 and
-  Fong–Wandzura 22 — because fewer pulses can only reduce charge-noise error.
-  Even this idealised gate is capped at **0.932** under the valley spread.
+  upper-bounds *any* shorter exact sequence — including DiVincenzo 19,
+  Fong–Wandzura 22, and the Chadwick et al. ≈ 28-pulse 2-D-layout SOTA — because
+  fewer pulses can only reduce charge-noise error. Even this idealised gate is
+  capped at **0.932** under the valley spread.
 - The **joint-robust CNOT holds 0.950**, beating both the compact gate and its
   charge-noise-free ceiling.
 

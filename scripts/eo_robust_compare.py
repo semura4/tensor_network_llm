@@ -3,8 +3,10 @@
 EO CNOT under the device's dominant joint noise?
 
 The adversarial review's strongest objection is "why not compare against the
-shortest known exact sequence (DiVincenzo 19-pulse / Fong-Wandzura 22-pulse),
-which accumulates less charge-noise error?". This script answers it two ways:
+shortest known exact sequence (DiVincenzo 19-pulse / Fong-Wandzura 22-pulse, or
+the recent 2-D-layout sequences of Chadwick et al., Phys. Rev. A 111, 052616
+(2025), arXiv:2412.14918, ~28-pulse CX), which accumulates less charge-noise
+error?". This script answers it two ways:
 
 1. Direct: build a *compact* exact CNOT (KAK-block ansatz, 27 pulses, F~1) that
    is genuinely shorter than the 34-pulse standard gate and therefore more
@@ -175,8 +177,9 @@ def main(argv=None) -> int:
         "",
         f"The **charge-noise-free ceiling** removes charge noise entirely from the compact",
         f"gate (sigma=0). This upper-bounds *any* shorter exact sequence, including the",
-        f"DiVincenzo 19-pulse and Fong-Wandzura 22-pulse gates, since fewer pulses can only",
-        f"reduce charge-noise error. Even this idealised gate is capped at mean F = "
+        f"DiVincenzo 19-pulse, Fong-Wandzura 22-pulse, and Chadwick et al. (arXiv:2412.14918,",
+        f"~28-pulse) 2-D-layout SOTA gates, since fewer pulses can only reduce charge-noise",
+        f"error. Even this idealised gate is capped at mean F = "
         f"**{comp_ceiling_mean:.3f}** under the valley spread.",
         "",
         f"The **joint-robust CNOT holds {rob_mean:.3f}**, beating both the compact gate",

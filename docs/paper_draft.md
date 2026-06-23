@@ -265,15 +265,17 @@ both training and evaluation gives the joint numbers above.
 
 **Falsifiable claim vs the best-known short exact gate.** The strongest
 non-robust baseline is the shortest exact sequence (DiVincenzo 19-pulse,
-Fong–Wandzura 22-pulse), which accrues less charge-noise error. We construct a
+Fong–Wandzura 22-pulse, and the recent 2-D-layout-optimised sequences of
+Chadwick et al. [18], whose macro CX cost is ≈ 28 pulses). We construct a
 compact 27-pulse exact CNOT (KAK ansatz, nominal F = 0.9988) that is shorter and
-more charge-favourable than the 34-pulse standard gate; under the joint ensemble
-it reaches 0.926 (vs 0.826). Removing charge noise entirely from it (σ = 0)
-gives a **charge-noise-free ceiling of 0.932** — an upper bound on *any* shorter
-exact sequence, since fewer pulses can only reduce charge-noise error. The
-joint-robust CNOT (0.950) **beats that ceiling**, so the advantage is on the
-valley axis and cannot be recovered by reducing pulse count
-(`scripts/eo_robust_compare.py`).
+more charge-favourable than the 34-pulse standard gate, and comparable in length
+to the Chadwick et al. SOTA; under the joint ensemble it reaches 0.926 (vs
+0.826). Removing charge noise entirely from it (σ = 0) gives a
+**charge-noise-free ceiling of 0.932** — an upper bound on *any* shorter exact
+sequence (including all three baselines above), since fewer pulses can only
+reduce charge-noise error. The joint-robust CNOT (0.950) **beats that ceiling**,
+so the advantage is on the valley axis and cannot be recovered by reducing pulse
+count (`scripts/eo_robust_compare.py`).
 
 ---
 
@@ -367,6 +369,11 @@ numbers):
 16. Volmer et al., *Velocity-shaped spin shuttling*, npj QI **10**, 61 (2024),
     arXiv:2312.17694.
 17. 300 mm Si-MOS foundry qubits, arXiv:2410.15590 (2024).
+18. Chadwick et al., *Short two-qubit pulse sequences for exchange-only spin
+    qubits in two-dimensional layouts*, Phys. Rev. A **111**, 052616 (2025),
+    arXiv:2412.14918. **(modern SOTA short exact EO two-qubit sequences;
+    ≈ 28-pulse CX — the strongest short-exact baseline subsumed by the
+    charge-noise-free ceiling)**
 
 _Citation keys above are short forms; full author lists and DOIs to be completed
 at submission._
