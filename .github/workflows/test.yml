@@ -1,0 +1,91 @@
+name: EO Pulse Control IR tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  core:
+    name: core IR (standard library only)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install the package (eo command, no deps)
+        run: pip install -e .
+      - name: Run core IR test suite (no third-party deps)
+        run: python -m unittest tests.test_eo_pulse_ir -v
+      - name: Smoke-test the CLI on the example circuits
+        run: |
+          python -m eo_pulse_ir.cli examples/bell.qasm -o out/bell
+          python -m eo_pulse_ir.cli examples/ghz.qasm -o out/ghz
+          python -m eo_pulse_ir.cli --pulses examples/external_pulses.json --num-dots 6 -o out/ext
+      - name: Smoke-test the eo app (compile, dashboard, demo)
+        run: |
+          eo --version
+          eo dashboard examples/ghz.qasm -o out/dash
+          eo demo -o out/demo
+      - name: Smoke-test 2-D grid compilation
+        run: python scripts/eo_grid_demo.py -n 4 -p ring -o out/grid_demo
+      - name: Smoke-test single-spin QSoC control-budget study
+        run: python scripts/eo_qsoc_budget.py --quick -o out/qsoc_budget
+
+  simulator:
+    name: physics simulator (numpy)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install numpy
+        run: pip install numpy
+      - name: Run simulator test suite
+        run: python -m unittest tests.test_eo_sim -v
+      - name: Smoke-test the validation + landscape script
+        run: python scripts/eo_landscape.py --res 10 -o out/landscape
+      - name: Smoke-test the noise Monte-Carlo script
+        run: python scripts/eo_noise_mc.py --samples 40 --rep-sigma 0.01 -o out/noise
+      - name: Smoke-test the field-gradient study
+        run: python scripts/eo_gradient_study.py --res 8 -o out/gradient
+      - name: Smoke-test the control / controllability analysis
+        run: python scripts/eo_control_analysis.py -o out/control
+      - name: Smoke-test the quaternion single-qubit layer
+        run: python scripts/eo_quaternion.py -o out/quaternion
+      - name: Smoke-test the MPS / tensor-network evolver
+        run: python scripts/eo_mps.py --chi-max 16 --max-qubits 8 -o out/mps
+      - name: Smoke-test the state-space dynamical-systems view
+        run: python scripts/eo_statespace.py -o out/statespace
+      - name: Smoke-test the n-qubit gate designer (1q/2q, fast)
+        run: python scripts/eo_synthesis.py -o out/synthesis
+      - name: Smoke-test MPS-GRAPE (tensor-network optimal control)
+        run: python scripts/eo_mps_grape.py --max-qubits 3 --steps 120 --restarts 2 -o out/mps_grape
+      - name: Smoke-test the bifurcation analysis
+        run: python scripts/eo_bifurcation.py --res 24 -o out/bifurcation
+      - name: Smoke-test the valley (spin x valley) layer
+        run: python scripts/eo_valley.py -o out/valley
+      - name: Smoke-test the device calibration
+        run: python scripts/eo_calibrate.py --samples 120 -o out/calibration
+      - name: Smoke-test valley-robust pulse design
+        run: python scripts/eo_robust.py --spread 0.3 --steps 60 -o out/robust
+      - name: Smoke-test joint valley+noise robust design
+        run: python scripts/eo_robust_joint.py --spread 0.3 --sigma 0.01 --steps 50 -o out/robust_joint
+      - name: Smoke-test robust vs best-known short exact comparison
+        run: python scripts/eo_robust_compare.py --quick -o out/robust_compare
+      - name: Smoke-test 2-D place-and-route x valley-robust costs
+        run: python scripts/eo_grid_robust.py --quick -n 4 -o out/grid_robust
+      - name: Smoke-test leakage accumulation judgment experiment
+        run: python scripts/eo_leakage_accumulation.py --quick -o out/leakage_accumulation
+      - name: Smoke-test gate adiabaticity vs valley leakage study
+        run: python scripts/eo_gate_adiabaticity.py --quick -o out/gate_adiabaticity
