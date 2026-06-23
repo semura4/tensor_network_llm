@@ -1,18 +1,20 @@
-# EO Pulse Control IR — specification (v0.1)
+# EO Pulse Control IR — specification (v0.2)
 
 A small, stable contract so other tools (a circuit front end, an optimiser,
-`eoqrid`, a Blueqat back end, a cryo-CMOS controller) can produce and consume the
-exchange-only pulse intermediate representation. Everything here is plain
-JSON/CSV; the core library reads/writes it with the standard library only.
+`eoqrid`, a Blueqat back end, a cryo-CMOS controller, a place-and-route layer)
+can produce and consume the exchange-only pulse intermediate representation.
+Everything here is plain JSON/CSV; the core library reads/writes it with the
+standard library only.
 
 ## Levels
 
 ```
-logical circuit  ──►  pulse IR (schedule)  ──►  controller memory
- (OpenQASM/Blueqat)    (pulse_timeline.json)     (instruction/pattern CSV)
-        ▲                      ▲  ▲
-        │                      │  └── external optimiser / eoqrid (pulse records)
-   adapters.qasm          adapters.external
+logical circuit  ──►  topology + layout  ──►  pulse IR (schedule)  ──►  controller memory
+ (OpenQASM/Blueqat)    (1-D chain / 2-D grid)   (pulse_timeline.json)   (instruction/pattern CSV)
+        ▲                      ▲                       ▲  ▲
+        │                      │                       │  └── external optimiser / eoqrid (pulse records)
+   adapters.qasm       GridTopology /             adapters.external / adapters.eoqrid
+   adapters.blueqat    LinearTopology
 ```
 
 ## 1. Logical circuit (front end)
@@ -22,7 +24,33 @@ QASM-lite / OpenQASM-2 subset, plus the EO-native `cxswap` and arbitrary
 `cx/cnot swap cxswap` (2-qubit). Parsed by `eo_pulse_ir.parse_circuit`; emitted by
 `eo_pulse_ir.adapters.qasm.to_openqasm`.
 
-## 2. Pulse IR — `pulse_timeline.json`
+## 2. Topology and layout
+
+Two physical topologies are supported:
+
+- **`LinearTopology(num_qubits)`** — 1-D chain.  Each logical qubit occupies
+  3 consecutive dots.  Routing uses nearest-neighbour bubble SWAPs.
+
+- **`GridTopology(rows, cols)`** — 2-D square-lattice patch.  Each grid slot
+  holds one encoded qubit (3 dots).  Adjacent slots on the grid share an
+  endpoint-to-endpoint inter-group edge (dot `3*s_a+2` ↔ dot `3*s_b`).
+
+  **Initial layout**: `grid.assign_initial_layout(qubits, circuit_gates=...)`
+  uses an interaction-weighted greedy heuristic (most-connected-first placement,
+  minimising weighted Manhattan distance) with pair-swap local-search
+  refinement.  No external dependencies (stdlib only; no CP-SAT optimality
+  proof — use the `adapters.external` seam to ingest an externally-optimised
+  layout if needed).
+
+  **Routing**: BFS shortest-path encoded-SWAP chains on the grid.
+
+  **Scheduling**: the existing ASAP dot-availability scheduler handles 2-D
+  layouts automatically (pulses on well-separated edges parallelise for free).
+
+Pass the topology to `compile_circuit(circuit, topology=grid)` or
+`synthesize(circuit, topology=grid)`.
+
+## 3. Pulse IR — `pulse_timeline.json`
 
 The canonical interchange object. A pulse is one square exchange pulse on one
 nearest-neighbour edge.
@@ -44,9 +72,9 @@ nearest-neighbour edge.
 Field contract (per pulse): `edge` = `[low, high]` adjacent dots; `area` = exchange
 action ∫J dt in radians (full SWAP = π); `role` ∈ {`intra`,`inter`,`route`};
 `start`/`duration`/`j` filled by the scheduler. **`edge` and `area` are the only
-required fields to ingest** (see §4).
+required fields to ingest** (see §5).
 
-## 3. Controller memory (back end) — HRL-style cryo-CMOS
+## 4. Controller memory (back end) — HRL-style cryo-CMOS
 
 `instruction_memory.csv`: `addr, sequencer, output, op, pattern_id,
 t_start_samples, width_samples, gate`.
@@ -56,7 +84,7 @@ Pattern words carry a DAC code (from `J(V)=j0·exp((V−v0)/vc)`) and a pulse wi
 budgeted against `num_sequencers`, `instruction_memory_words`,
 `pattern_memory_words_per_output` (see `HardwareConfig`).
 
-## 4. External pulse records (optimiser / eoqrid seam)
+## 5. External pulse records (optimiser / eoqrid seam)
 
 To drive the IR with calibrated pulses, supply a list of records — each needs at
 least `edge` and `area`; `gate`, `role`, `logical_qubits` are optional:
@@ -71,8 +99,32 @@ Ingest with `eo_pulse_ir.compile_pulse_records(records, num_dots)` or
 external optimiser or `eoqrid`'s pulse output: produce this shape and the whole
 cost/scheduling/hardware/visualisation pipeline runs on it unchanged.
 
+## 6. eoqrid adapter
+
+`adapters.eoqrid.from_eoqrid(qc_native)` converts an eoqrid-transpiled
+Qiskit `QuantumCircuit` (containing `Ex` gates) to pulse records (§5 format).
+`adapters.eoqrid.compile_eoqrid(qc_native)` does the conversion and full
+compilation in one step.  The Qiskit import is guarded — the adapter loads
+without third-party packages and only requires Qiskit at call time.
+
+## 7. Integration with external place-and-route tools
+
+The IR is designed to interoperate with external place-and-route layers such as
+[exchange-pulse-optimizer](https://github.com/kaluza1/exchange-pulse-optimizer)
+(CP-SAT exact optimisation on 2-D square lattices).  The recommended seam:
+
+1. Use the external tool for layout + routing (it produces a macro-level pulse
+   plan with fixed integer costs like `cx=28`).
+2. Replace those fixed costs with our calibrated, valley-robust pulse areas
+   by feeding the macro plan through `adapters.external.pulse_records_to_result`.
+3. The rest of the IR pipeline (scheduling, hardware memory, metrics,
+   visualisation) runs unchanged on the externally-optimised plan.
+
+This keeps the IR dependency-light while allowing full CP-SAT optimality when
+the external tool is available.
+
 ## Versioning
 
-This document is `v0.1`. Backwards-incompatible field changes bump the minor
+This document is `v0.2`. Backwards-incompatible field changes bump the minor
 version; new optional fields do not. The Python API mirrors the spec
 (`eo_pulse_ir.__version__`).

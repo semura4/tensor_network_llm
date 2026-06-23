@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from .circuit import Circuit
-from .compile import synthesize
+from .compile import Topology, synthesize
 from .hardware import HardwareConfig, MemoryReport, build_memory
 from .metrics import CostMetrics, compute_metrics
 from .report import (render_report, write_instruction_memory_csv,
@@ -25,11 +25,19 @@ class CompileResult:
     hardware: HardwareConfig
 
 
-def compile_circuit(circuit: Circuit, hw: Optional[HardwareConfig] = None) -> CompileResult:
-    """Compile a logical circuit all the way to scheduled pulses + metrics."""
+def compile_circuit(circuit: Circuit, hw: Optional[HardwareConfig] = None,
+                    topology: Optional[Topology] = None) -> CompileResult:
+    """Compile a logical circuit all the way to scheduled pulses + metrics.
+
+    Parameters
+    ----------
+    topology : LinearTopology | GridTopology | None
+        Physical layout.  Defaults to a 1-D chain via ``LinearTopology``.
+        Pass a :class:`GridTopology` for 2-D square-lattice compilation.
+    """
     hw = hw or HardwareConfig()
-    pulses, _topo = synthesize(circuit)
-    schedule = schedule_pulses(pulses, num_dots=circuit.num_qubits * 3, j_max=hw.j_max)
+    pulses, topo = synthesize(circuit, topology=topology)
+    schedule = schedule_pulses(pulses, num_dots=topo.num_dots, j_max=hw.j_max)
     mem = build_memory(schedule, hw)
     metrics = compute_metrics(schedule, hw)
     return CompileResult(schedule=schedule, metrics=metrics, memory=mem, hardware=hw)

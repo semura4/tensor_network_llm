@@ -9,8 +9,9 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from eo_pulse_ir import (HardwareConfig, compile_circuit, compile_pulse_records,
-                         emit_artifacts, parse_circuit, render_svg)
+from eo_pulse_ir import (GridTopology, HardwareConfig, compile_circuit,
+                         compile_pulse_records, emit_artifacts, parse_circuit,
+                         render_svg)
 from eo_pulse_ir.native import one_qubit_template, two_qubit_template
 from eo_pulse_ir.schedule import Pulse, schedule_pulses
 from eo_pulse_ir.topology import LinearTopology
@@ -88,6 +89,76 @@ class TestTopologyRouting(unittest.TestCase):
             t.swap_positions(a)
         # control must end up immediately left of target
         self.assertEqual(t.position_of[0] - t.position_of[3], 1)
+
+
+class TestGridTopology(unittest.TestCase):
+    def test_grid_dot_mapping(self):
+        g = GridTopology(2, 2)
+        g.assign_initial_layout([0, 1, 2, 3])
+        self.assertEqual(g.num_dots, 12)
+        self.assertEqual(g.dots_of_slot(0), (0, 1, 2))
+        self.assertEqual(g.dots_of_slot(3), (9, 10, 11))
+
+    def test_grid_neighbours(self):
+        g = GridTopology(3, 3)
+        # corner: 2 neighbours
+        self.assertEqual(len(g.slot_neighbours(0)), 2)
+        # center: 4 neighbours
+        self.assertEqual(len(g.slot_neighbours(4)), 4)
+        # edge: 3 neighbours
+        self.assertEqual(len(g.slot_neighbours(1)), 3)
+
+    def test_grid_inter_edge(self):
+        g = GridTopology(2, 2)
+        # slot 0 to slot 1 (horizontal): dot 2 of slot 0 to dot 0 of slot 1
+        edge = g.inter_edge(0, 1)
+        self.assertEqual(edge, (2, 3))
+        # slot 0 to slot 2 (vertical): dot 2 of slot 0 to dot 0 of slot 2
+        edge = g.inter_edge(0, 2)
+        self.assertEqual(edge, (2, 6))
+
+    def test_grid_route_already_adjacent(self):
+        g = GridTopology(2, 2)
+        g.assign_initial_layout([0, 1, 2, 3])
+        swaps = g.route_adjacent(0, 1)
+        self.assertEqual(swaps, [])
+
+    def test_grid_route_diagonal(self):
+        g = GridTopology(2, 2)
+        g.assign_initial_layout([0, 1, 2, 3])
+        # q0 at slot 0 (0,0), q3 at slot 3 (1,1) — diagonal, distance 2
+        swaps = g.route_adjacent(0, 3)
+        self.assertGreater(len(swaps), 0)
+        for (a, b) in swaps:
+            g.swap_slots(a, b)
+        self.assertEqual(g.grid_distance(g.slot_of[0], g.slot_of[3]), 1)
+
+    def test_initial_placement_center_hub(self):
+        """Hub qubit in a star circuit should be placed at the center."""
+        circ = parse_circuit("qubits 9\n" +
+                             "\n".join(f"cx 0 {i}" for i in range(1, 9)))
+        g = GridTopology(3, 3)
+        g.assign_initial_layout(list(range(9)), circuit_gates=circ.gates)
+        # center slot is 4 on a 3x3 grid; q0 should be there
+        self.assertEqual(g.slot_of[0], 4)
+
+    def test_grid_compile_bell(self):
+        """2-qubit Bell on a 1x2 grid should match linear compilation."""
+        circ = parse_circuit("qubits 2\nh 0\ncx 0 1\n")
+        grid = GridTopology(1, 2)
+        grid.assign_initial_layout([0, 1], circuit_gates=circ.gates)
+        r_grid = compile_circuit(circ, topology=grid)
+        r_lin = compile_circuit(circ)
+        self.assertEqual(r_grid.metrics.pulse_count, r_lin.metrics.pulse_count)
+
+    def test_grid_routing_reduces_pulses_vs_linear(self):
+        """Ring circuit on a 2x2 grid should need fewer routing SWAPs."""
+        circ = parse_circuit("qubits 4\ncx 0 1\ncx 1 2\ncx 2 3\ncx 3 0\n")
+        grid = GridTopology(2, 2)
+        grid.assign_initial_layout(list(range(4)), circuit_gates=circ.gates)
+        r_grid = compile_circuit(circ, topology=grid)
+        r_lin = compile_circuit(circ)
+        self.assertLessEqual(r_grid.metrics.pulse_count, r_lin.metrics.pulse_count)
 
 
 class TestScheduling(unittest.TestCase):
@@ -197,6 +268,76 @@ class TestAdapters(unittest.TestCase):
         out = ir_to_pulse_records(result)
         self.assertEqual(len(out), 2)
         self.assertEqual(result.metrics.pulse_count, 2)
+
+    def test_eoqrid_adapter_mock(self):
+        from eo_pulse_ir.adapters.eoqrid import from_eoqrid, compile_eoqrid
+
+        # Mock eoqrid output: a Qiskit-like QuantumCircuit with Ex gates
+        class MockQubit:
+            def __init__(self, idx):
+                self._index = idx
+
+        class MockGate:
+            def __init__(self, name, params):
+                self.name = name
+                self.params = params
+
+        class MockInstruction:
+            def __init__(self, gate, qubits):
+                self.operation = gate
+                self.qubits = qubits
+
+        class MockCircuit:
+            def __init__(self, instructions):
+                self.data = instructions
+
+        qc = MockCircuit([
+            MockInstruction(MockGate("ex", [1.5708, 0.5]),
+                            [MockQubit(0), MockQubit(1)]),
+            MockInstruction(MockGate("ex", [2.3562, 0.3]),
+                            [MockQubit(1), MockQubit(2)]),
+            MockInstruction(MockGate("barrier", []),
+                            [MockQubit(0)]),
+        ])
+        records = from_eoqrid(qc)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["edge"], [0, 1])
+        self.assertAlmostEqual(records[0]["area"], 1.5708)
+        self.assertEqual(records[1]["edge"], [1, 2])
+
+        # compile end-to-end
+        result = compile_eoqrid(qc)
+        self.assertEqual(result.metrics.pulse_count, 2)
+        self.assertGreater(result.metrics.total_time, 0)
+
+    def test_eoqrid_custom_param_to_area(self):
+        from eo_pulse_ir.adapters.eoqrid import from_eoqrid
+
+        class MockQubit:
+            def __init__(self, idx):
+                self._index = idx
+
+        class MockGate:
+            def __init__(self, name, params):
+                self.name = name
+                self.params = params
+
+        class MockInstruction:
+            def __init__(self, gate, qubits):
+                self.operation = gate
+                self.qubits = qubits
+
+        class MockCircuit:
+            def __init__(self, instructions):
+                self.data = instructions
+
+        qc = MockCircuit([
+            MockInstruction(MockGate("ex", [2.0, 0.5]),
+                            [MockQubit(0), MockQubit(1)]),
+        ])
+        # custom: area = param[0] * param[1]
+        records = from_eoqrid(qc, param_to_area=lambda p: p[0] * p[1])
+        self.assertAlmostEqual(records[0]["area"], 1.0)
 
 
 class TestApp(unittest.TestCase):

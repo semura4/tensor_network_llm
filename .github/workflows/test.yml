@@ -32,6 +32,8 @@ jobs:
           eo --version
           eo dashboard examples/ghz.qasm -o out/dash
           eo demo -o out/demo
+      - name: Smoke-test 2-D grid compilation
+        run: python scripts/eo_grid_demo.py -n 4 -p ring -o out/grid_demo
 
   simulator:
     name: physics simulator (numpy)

@@ -25,14 +25,14 @@ from .pipeline import (CompileResult, compile_circuit, compile_pulse_records,
                        emit_artifacts)
 from .report import render_report
 from .schedule import Pulse, Schedule, pulses_from_records, schedule_pulses
-from .topology import LinearTopology
+from .topology import GridTopology, LinearTopology
 from .visualize import render_svg, timeline_records, write_svg, write_timeline_json
 
 __version__ = "0.1.0"
 
 __all__ = [
     "Circuit", "Gate", "parse_circuit", "parse_circuit_file",
-    "synthesize", "LinearTopology",
+    "synthesize", "LinearTopology", "GridTopology",
     "Pulse", "Schedule", "schedule_pulses", "pulses_from_records",
     "HardwareConfig", "MemoryReport", "build_memory",
     "CostMetrics", "compute_metrics",
