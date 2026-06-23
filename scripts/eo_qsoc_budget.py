@@ -39,6 +39,8 @@ from eo_pulse_ir.singlespin import (
     SingleSpinControl, Workload, qsoc_budget, distinct_pattern_words,
     crossover_wire_limit, crossover_cold_power, cross_check_against_build_memory,
     max_qubits_cold_power, required_cold_power_w_per_qubit,
+    SwitchingModel, op_energy_j, dynamic_cold_power_per_qubit_w,
+    max_qubits_dynamic_power, landauer_floor_j,
 )
 
 
@@ -104,6 +106,20 @@ def main(argv=None) -> int:
     req_1k = required_cold_power_w_per_qubit(1000, ctrl)
     req_1m = required_cold_power_w_per_qubit(1_000_000, ctrl)
 
+    # --- adiabatic (energy-recovery) switching: the lever for the cold-power wall ---
+    sw = SwitchingModel()
+    e_conv = op_energy_j(sw, "conventional")
+    e_adia = op_energy_j(sw, "adiabatic")
+    p_conv = dynamic_cold_power_per_qubit_w(sw, work, "conventional")
+    p_adia = dynamic_cold_power_per_qubit_w(sw, work, "adiabatic")
+    n_conv = max_qubits_dynamic_power(sw, work, ctrl, "conventional")
+    n_adia = max_qubits_dynamic_power(sw, work, ctrl, "adiabatic")
+    e_land = landauer_floor_j(ctrl)
+    print(f"[qsoc] dynamic switching: conventional {p_conv*1e9:.1f} nW/qubit "
+          f"(N_max {_fmt(n_conv)}) -> adiabatic {p_adia*1e9:.2f} nW/qubit "
+          f"(N_max {_fmt(n_adia)}); RC={sw.rc_time_ns:.1f} ns, ramp={sw.ramp_time_ns:.0f} ns",
+          flush=True)
+
     # --- plots (numpy SVG helper) ---
     try:
         from eo_pulse_ir.sim.landscape import line_plot_svg, write_svg
@@ -155,6 +171,18 @@ def main(argv=None) -> int:
             xlabel="qubits N", ylabel="cold power (W)", logx=True, logy=True),
             os.path.join(args.out_dir, "qsoc_cold_power.svg"))
 
+        # 5. adiabatic: dynamic cold power per qubit vs ramp time (energy recovery)
+        ramps = [10 * (1.4 ** k) for k in range(0, 18)]  # ~10 ns .. ~2 us
+        adia_p = [dynamic_cold_power_per_qubit_w(sw, work, "adiabatic", t) for t in ramps]
+        write_svg(line_plot_svg(
+            [("adiabatic (energy-recovery)", ramps, [p * 1e9 for p in adia_p]),
+             ("conventional CV^2", ramps, [p_conv * 1e9 for _ in ramps]),
+             (f"budget/1M qubits", ramps, [budget_w / 1e6 * 1e9 for _ in ramps])],
+            title="Adiabatic switching: dynamic cold power vs ramp time",
+            xlabel="ramp time (ns)", ylabel="dynamic power (nW/qubit)",
+            logx=True, logy=True),
+            os.path.join(args.out_dir, "qsoc_adiabatic.svg"))
+
     # --- results.json ---
     results = {
         "params": {
@@ -172,6 +200,13 @@ def main(argv=None) -> int:
         "cold_power_scenarios": [
             {"per_qubit_uw": p, "max_qubits": n} for p, n in scenario_rows],
         "required_cold_power_w_per_qubit": {"N_1e3": req_1k, "N_1e6": req_1m},
+        "adiabatic": {
+            "switching": sw.__dict__, "rc_time_ns": sw.rc_time_ns,
+            "energy_conventional_j": e_conv, "energy_adiabatic_j": e_adia,
+            "dyn_power_conventional_w": p_conv, "dyn_power_adiabatic_w": p_adia,
+            "max_qubits_conventional": n_conv, "max_qubits_adiabatic": n_adia,
+            "landauer_floor_j": e_land,
+        },
         "pattern_bank": distinct_pattern_words(ctrl),
         "sweep": rows,
     }
@@ -229,6 +264,37 @@ def main(argv=None) -> int:
         "per-channel dissipation.  *This*, not wiring, is the dominant wall, and it",
         "is the case for moving as much switching activity off the cold stage as",
         "possible (shared pattern replay, minimal cold dynamic power).",
+        "",
+        "## The lever: adiabatic (energy-recovery) switching",
+        "",
+        "Conventional CMOS dissipates the full `C·V^2` per control-node",
+        "charge/discharge, regardless of speed.  **Adiabatic logic** ramps the node",
+        "slowly and recovers most of that energy: dissipation ≈ "
+        "`C·V^2·(τ_RC/T_ramp)`.  Spin qubits gate slowly (~100 ns–1 µs), so",
+        f"adiabatic ramps (≫ the τ_RC ≈ {sw.rc_time_ns:.1f} ns here) are *naturally*",
+        "compatible — unlike fast superconducting gates.",
+        "",
+        "| switching | energy / event | dynamic power | max qubits @ "
+        f"{ctrl.operating_temp_k} K |",
+        "|---|---:|---:|---:|",
+        f"| conventional C·V^2 | {e_conv*1e15:.1f} fJ | {p_conv*1e9:.1f} nW/qubit "
+        f"| {_fmt(n_conv)} |",
+        f"| adiabatic (T_ramp={sw.ramp_time_ns:.0f} ns) | {e_adia*1e15:.3f} fJ "
+        f"| {p_adia*1e9:.2f} nW/qubit | {_fmt(n_adia)} |",
+        "",
+        f"Energy recovery moves the *dynamic*-power-limited ceiling from "
+        f"**N ≈ {_fmt(n_conv)}** to **N ≈ {_fmt(n_adia)}** at "
+        f"{ctrl.operating_temp_k} K — roughly the gap between not-scalable and",
+        "fault-tolerant scale.  (The Landauer floor kT·ln2 ≈ "
+        f"{e_land:.1e} J is ~{e_adia/e_land:.0e}× below even the adiabatic energy,",
+        "so there is enormous headroom above the thermodynamic limit.)",
+        "",
+        "Two caveats keep this honest: (a) this is *dynamic* switching energy only —",
+        "today's mW/channel is dominated by static bias + analog overhead, which",
+        "adiabatic logic does not fix, so duty-cycled power-gating (which the shared",
+        "pattern-replay enables) must remove that floor too; (b) slower ramps mean",
+        "slower gates, so adiabaticity trades against cycle time — but spin qubits",
+        "have the timing headroom to absorb it.",
         "",
         "## Secondary: the wiring wall (room-temp electronics)",
         "",

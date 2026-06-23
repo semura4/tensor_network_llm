@@ -242,6 +242,76 @@ def cold_power_w(n: int, ctrl: SingleSpinControl) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Adiabatic (energy-recovery) switching — the lever for the cold-power wall
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SwitchingModel:
+    """Cold control-node switching energy: conventional CV^2 vs adiabatic recovery.
+
+    Conventional CMOS dissipates the full ``C·V^2`` per charge/discharge of a
+    control node, independent of speed.  **Adiabatic (energy-recovery) logic**
+    ramps the node slowly (constant-current-like) over ``ramp_time_ns``, recovering
+    most of the energy: dissipation ≈ ``C·V^2 · (τ_RC / T_ramp)`` for
+    ``T_ramp ≫ τ_RC``, floored by non-idealities at ``adiabatic_floor_factor·C·V^2``.
+
+    Spin qubits gate slowly (~100 ns–1 µs), so adiabatic ramps (≫ the few-ns
+    τ_RC) are *naturally* compatible — unlike fast superconducting gates.  This is
+    why energy-recovery control is a realistic lever for the sub-K cold-power wall.
+    """
+
+    node_capacitance_f: float = 0.5e-12       # control-node capacitance (gate line + driver)
+    swing_v: float = 0.5                       # full-swing control voltage
+    switch_resistance_ohm: float = 5.0e3       # cryo switch on-resistance
+    switching_events_per_qubit_per_cycle: float = 8.0  # charge/discharge events / cycle
+    ramp_time_ns: float = 200.0                # adiabatic ramp time (≫ τ_RC)
+    adiabatic_floor_factor: float = 0.01       # best recoverable fraction (non-idealities)
+
+    @property
+    def cv2_j(self) -> float:
+        """Conventional full-swing switching energy C·V^2 (J)."""
+        return self.node_capacitance_f * self.swing_v ** 2
+
+    @property
+    def rc_time_ns(self) -> float:
+        return self.switch_resistance_ohm * self.node_capacitance_f * 1e9
+
+
+def op_energy_j(sw: SwitchingModel, mode: str, ramp_time_ns: Optional[float] = None) -> float:
+    """Energy dissipated per switching event (J) for ``mode`` ∈ {conventional, adiabatic}."""
+    if mode == "conventional":
+        return sw.cv2_j
+    if mode == "adiabatic":
+        t = sw.ramp_time_ns if ramp_time_ns is None else ramp_time_ns
+        factor = max(sw.rc_time_ns / t, sw.adiabatic_floor_factor) if t > 0 else 1.0
+        return sw.cv2_j * factor
+    raise ValueError(f"unknown mode {mode!r}")
+
+
+def dynamic_cold_power_per_qubit_w(sw: SwitchingModel, work: Workload, mode: str,
+                                   ramp_time_ns: Optional[float] = None) -> float:
+    """Per-qubit *dynamic* (switching) cold power (W) for the workload's cycle rate."""
+    e = op_energy_j(sw, mode, ramp_time_ns)
+    cycle_s = work.cycle_time_ns * 1e-9
+    return sw.switching_events_per_qubit_per_cycle * e / cycle_s if cycle_s else 0.0
+
+
+def max_qubits_dynamic_power(sw: SwitchingModel, work: Workload,
+                             ctrl: SingleSpinControl, mode: str,
+                             ramp_time_ns: Optional[float] = None) -> int:
+    """Max N at ``operating_temp_k`` limited by *dynamic* switching power alone."""
+    p = dynamic_cold_power_per_qubit_w(sw, work, mode, ramp_time_ns)
+    if p <= 0:
+        return -1
+    return int(ctrl.cooling_budget_w / p)
+
+
+def landauer_floor_j(ctrl: SingleSpinControl) -> float:
+    """Landauer limit kT·ln2 per irreversible bit operation at ``operating_temp_k`` (J)."""
+    return 1.380649e-23 * ctrl.operating_temp_k * math.log(2)
+
+
+# ---------------------------------------------------------------------------
 # Aggregate budget + crossovers
 # ---------------------------------------------------------------------------
 

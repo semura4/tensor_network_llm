@@ -461,6 +461,38 @@ class TestSingleSpinQSoC(unittest.TestCase):
         # 1000x more qubits -> 1000x tighter per-qubit power budget
         self.assertAlmostEqual(p_1k / p_1m, 1000.0, places=3)
 
+    def test_adiabatic_beats_conventional(self):
+        from eo_pulse_ir.singlespin import (SwitchingModel, op_energy_j,
+                                            max_qubits_dynamic_power, Workload)
+        ctrl, work, _hw = self._models()
+        sw = SwitchingModel()
+        # adiabatic recovers energy: less per-event, more qubits supported
+        self.assertLess(op_energy_j(sw, "adiabatic"), op_energy_j(sw, "conventional"))
+        n_conv = max_qubits_dynamic_power(sw, work, ctrl, "conventional")
+        n_adia = max_qubits_dynamic_power(sw, work, ctrl, "adiabatic")
+        self.assertGreater(n_adia, 10 * n_conv)
+
+    def test_slower_ramp_recovers_more(self):
+        from eo_pulse_ir.singlespin import SwitchingModel, op_energy_j
+        sw = SwitchingModel()
+        fast = op_energy_j(sw, "adiabatic", ramp_time_ns=20.0)
+        slow = op_energy_j(sw, "adiabatic", ramp_time_ns=200.0)
+        # slower ramp -> lower dissipation (until the non-ideality floor)
+        self.assertLess(slow, fast)
+
+    def test_adiabatic_floor_caps_recovery(self):
+        from eo_pulse_ir.singlespin import SwitchingModel, op_energy_j
+        sw = SwitchingModel()
+        # an extremely slow ramp cannot beat the non-ideality floor
+        floored = op_energy_j(sw, "adiabatic", ramp_time_ns=1e9)
+        self.assertAlmostEqual(floored, sw.adiabatic_floor_factor * sw.cv2_j, places=20)
+
+    def test_ramp_above_rc_is_adiabatic_regime(self):
+        from eo_pulse_ir.singlespin import SwitchingModel
+        sw = SwitchingModel()
+        # the default ramp must sit well above the RC time for energy recovery
+        self.assertGreater(sw.ramp_time_ns, 10 * sw.rc_time_ns)
+
 
 if __name__ == "__main__":
     unittest.main()
