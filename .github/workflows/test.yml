@@ -81,3 +81,5 @@ jobs:
         run: python scripts/eo_robust_joint.py --spread 0.3 --sigma 0.01 --steps 50 -o out/robust_joint
       - name: Smoke-test robust vs best-known short exact comparison
         run: python scripts/eo_robust_compare.py --quick -o out/robust_compare
+      - name: Smoke-test 2-D place-and-route x valley-robust costs
+        run: python scripts/eo_grid_robust.py --quick -n 4 -o out/grid_robust

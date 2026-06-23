@@ -1,4 +1,4 @@
-# EO Pulse Control IR — specification (v0.2)
+# EO Pulse Control IR — specification (v0.3)
 
 A small, stable contract so other tools (a circuit front end, an optimiser,
 `eoqrid`, a Blueqat back end, a cryo-CMOS controller, a place-and-route layer)
@@ -107,11 +107,34 @@ Qiskit `QuantumCircuit` (containing `Ex` gates) to pulse records (§5 format).
 compilation in one step.  The Qiskit import is guarded — the adapter loads
 without third-party packages and only requires Qiskit at call time.
 
-## 7. Integration with external place-and-route tools
+## 7. Robust-cost-driven place-and-route (`gate_library`)
 
-The IR is designed to interoperate with external place-and-route layers such as
+The place-and-route runs on a **gate library** — a mapping
+`{gate_name: [(role, area), ...]}` of per-gate pulse sequences.  By default it
+uses the built-in simulator-validated templates (nominal areas).  Pass a
+`gate_library` to `synthesize` / `compile_circuit` to swap in **device-calibrated,
+valley-robust** areas instead:
+
+```python
+from eo_pulse_ir.sim.robust import robust_gate_library
+lib = robust_gate_library(sigma=0.0091, spread=0.3, gate_names=("cx", "swap"))
+result = compile_circuit(circuit, topology=grid, gate_library=lib)
+```
+
+The role sequence is unchanged, so cost/scheduling/memory are unaffected in
+structure — only the areas (and hence the noise response) change.  The library's
+`"swap"` entry is also used for routing SWAPs, so 2-D routing inherits the robust
+cost automatically.  This is the differentiator vs a place-and-route that costs
+gates by a fixed integer: the layout and the end-to-end fidelity estimate run on
+real, device-calibrated, valley-robust pulse costs (`scripts/eo_grid_robust.py`).
+Building `robust_gate_library` requires the numpy simulator; applying it does not.
+
+## 8. Integration with external place-and-route tools
+
+The IR also interoperates with external place-and-route layers such as
 [exchange-pulse-optimizer](https://github.com/kaluza1/exchange-pulse-optimizer)
-(CP-SAT exact optimisation on 2-D square lattices).  The recommended seam:
+(CP-SAT exact optimisation on 2-D square lattices) and front ends such as
+[eoqrid](https://github.com/samn33/eoqrid) (§6).  The recommended seam:
 
 1. Use the external tool for layout + routing (it produces a macro-level pulse
    plan with fixed integer costs like `cx=28`).
@@ -125,6 +148,6 @@ the external tool is available.
 
 ## Versioning
 
-This document is `v0.2`. Backwards-incompatible field changes bump the minor
+This document is `v0.3`. Backwards-incompatible field changes bump the minor
 version; new optional fields do not. The Python API mirrors the spec
 (`eo_pulse_ir.__version__`).

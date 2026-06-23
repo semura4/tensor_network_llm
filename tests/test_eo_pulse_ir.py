@@ -161,6 +161,35 @@ class TestGridTopology(unittest.TestCase):
         self.assertLessEqual(r_grid.metrics.pulse_count, r_lin.metrics.pulse_count)
 
 
+class TestGateLibrary(unittest.TestCase):
+    def test_gate_library_substitutes_areas(self):
+        """A custom gate_library overrides the 2-qubit areas (same role count)."""
+        from eo_pulse_ir.native import two_qubit_template
+        circ = parse_circuit("qubits 2\ncx 0 1\n")
+        # build a fake "robust" library: same roles, areas all set to 1.0
+        roles = [r for r, _ in two_qubit_template("cx")]
+        fake = {"cx": [(r, 1.0) for r in roles]}
+        r_default = compile_circuit(circ)
+        r_lib = compile_circuit(circ, gate_library=fake)
+        # same pulse count (role sequence unchanged)
+        self.assertEqual(r_lib.metrics.pulse_count, r_default.metrics.pulse_count)
+        # but the cx pulse areas are now all 1.0
+        cx_areas = [p.area for p in r_lib.schedule.pulses if p.gate == "cx"]
+        self.assertTrue(all(abs(a - 1.0) < 1e-12 for a in cx_areas))
+        self.assertEqual(len(cx_areas), len(roles))
+
+    def test_gate_library_affects_routing_swaps(self):
+        """The library's 'swap' entry is used for routing SWAPs too."""
+        from eo_pulse_ir.native import two_qubit_template
+        circ = parse_circuit("qubits 4\ncx 0 3\n")  # needs routing
+        roles = [r for r, _ in two_qubit_template("swap")]
+        fake = {"swap": [(r, 0.5) for r in roles]}
+        r_lib = compile_circuit(circ, gate_library=fake)
+        route_areas = [p.area for p in r_lib.schedule.pulses if p.role == "route"]
+        self.assertGreater(len(route_areas), 0)
+        self.assertTrue(all(abs(a - 0.5) < 1e-12 for a in route_areas))
+
+
 class TestScheduling(unittest.TestCase):
     def test_serialisation_on_shared_dot(self):
         pulses = [

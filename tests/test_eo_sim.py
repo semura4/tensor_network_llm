@@ -185,6 +185,41 @@ class TestRobust(unittest.TestCase):
         self.assertFalse(is_inter_edge((0, 1)))
         self.assertFalse(is_inter_edge((3, 4)))
 
+    def test_robust_gate_library_is_drop_in(self):
+        """robust_gate_library returns same-role sequences usable as gate_library."""
+        from eo_pulse_ir import compile_circuit, parse_circuit
+        from eo_pulse_ir.native import two_qubit_template
+        from eo_pulse_ir.sim.robust import robust_gate_library
+
+        lib = robust_gate_library(0.01, 0.3, gate_names=("cx", "swap"), steps=20)
+        # role sequence identical to the built-in templates
+        for name in ("cx", "swap"):
+            roles_lib = [r for r, _ in lib[name]]
+            roles_tpl = [r for r, _ in two_qubit_template(name)]
+            self.assertEqual(roles_lib, roles_tpl)
+        # drop-in: compiles a circuit with the same pulse count as nominal
+        circ = parse_circuit("qubits 2\ncx 0 1\n")
+        r_nom = compile_circuit(circ)
+        r_rob = compile_circuit(circ, gate_library=lib)
+        self.assertEqual(r_rob.metrics.pulse_count, r_nom.metrics.pulse_count)
+
+    def test_robust_library_improves_circuit_fidelity(self):
+        """The robust library raises the joint-noise CNOT fidelity vs nominal."""
+        from eo_pulse_ir.native import two_qubit_template
+        from eo_pulse_ir.sim import gates
+        from eo_pulse_ir.sim.robust import (ensemble_fidelity,
+                                            joint_valley_noise_samples,
+                                            robust_gate_library, roles_to_edges)
+        lib = robust_gate_library(0.01, 0.3, gate_names=("cx",), steps=120)
+        roles = [r for r, _ in lib["cx"]]
+        edges = roles_to_edges(roles)
+        rob = np.array([a for _, a in lib["cx"]])
+        nom = np.array([a for _, a in two_qubit_template("cx")])
+        test = joint_valley_noise_samples(edges, 0.3 * np.pi, 0.01, 120, seed=99)
+        fn = ensemble_fidelity(nom, edges, 2, gates.CNOT, test)
+        fr = ensemble_fidelity(rob, edges, 2, gates.CNOT, test)
+        self.assertGreater(fr, fn + 0.03)
+
 
 @unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
 class TestCalibration(unittest.TestCase):

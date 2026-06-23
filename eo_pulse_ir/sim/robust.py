@@ -88,6 +88,56 @@ def ensemble_fidelity_and_grad(areas, edges, num_qubits, target,
     return F / n, g / n
 
 
+# Canonical 2-logical-qubit role -> dot-edge map (control = positions 0, target
+# = position 1), matching eo_pulse_ir.compile._resolve_role for ctrl_pos=0,
+# tgt_pos=1.  A robust gate optimised on this isolated 6-dot block transfers to
+# any adjacent pair, because each 2-qubit gate is a local block in the IR.
+_ROLE_EDGE = {
+    "ctrl_low": (0, 1), "ctrl_high": (1, 2), "inter": (2, 3),
+    "tgt_low": (3, 4), "tgt_high": (4, 5),
+}
+
+
+def roles_to_edges(roles: Sequence[str]) -> List[Edge]:
+    """Map template role names to canonical 2-qubit dot edges."""
+    return [_ROLE_EDGE[r] for r in roles]
+
+
+def robust_gate_library(sigma: float, spread: float,
+                        gate_names: Sequence[str] = ("cx", "swap"),
+                        steps: int = 200, n_train: int = 12,
+                        seed: int = 1) -> dict:
+    """Build a valley+charge-robust gate library for a device profile.
+
+    For each gate, takes the built-in template's *role sequence* (and uses its
+    areas as the warm-start x0), then re-optimises the areas for the joint
+    ensemble (valley-phase spread ``±spread·π`` and charge noise ``sigma``).
+    Returns ``{gate_name: [(role, area), ...]}`` — the role sequence is
+    unchanged, so it is a drop-in ``gate_library`` for
+    :func:`eo_pulse_ir.compile.synthesize` / ``compile_circuit``.
+
+    This is the seam that lets the (1-D or 2-D) place-and-route run on
+    *device-calibrated, valley-robust* pulse costs instead of nominal templates.
+    """
+    from ..native import two_qubit_template
+    from . import gates as _gate_targets
+
+    targets = {"cx": _gate_targets.CNOT, "cnot": _gate_targets.CNOT,
+               "swap": _gate_targets.SWAP, "cxswap": _gate_targets.CXSWAP}
+    delta = spread * np.pi
+    lib: dict = {}
+    for name in gate_names:
+        template = two_qubit_template(name)
+        roles = [r for r, _ in template]
+        x0 = np.array([a for _, a in template], float)
+        edges = roles_to_edges(roles)
+        train = joint_valley_noise_samples(edges, delta, sigma, n_train, seed=seed)
+        areas, _F = robust_design(edges, 2, targets[name], train,
+                                  x0=x0, steps=steps, seed=seed)
+        lib[name] = list(zip(roles, [float(a) for a in areas]))
+    return lib
+
+
 def robust_design(edges, num_qubits, target, scales: Sequence[np.ndarray],
                   x0=None, steps: int = 300, restarts: int = 1, lr: float = 0.05,
                   seed: int = 0) -> Tuple[List[float], float]:

@@ -10,12 +10,14 @@ This is the heart of the IR.  For each logical gate we:
 The result is a flat, program-ordered pulse list ready for scheduling.
 
 Supports both :class:`LinearTopology` (1-D chain) and :class:`GridTopology`
-(2-D square-lattice patch).
+(2-D square-lattice patch), and an optional ``gate_library`` that overrides the
+built-in templates with device-calibrated / valley-robust pulse areas (the seam
+that lets the place-and-route run on real, robust costs instead of nominal ones).
 """
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from .circuit import Circuit, Gate
 from .native import one_qubit_template, two_qubit_template
@@ -23,6 +25,9 @@ from .schedule import Pulse
 from .topology import DOTS_PER_QUBIT, GridTopology, LinearTopology
 
 Topology = Union[LinearTopology, GridTopology]
+# A gate library maps a gate name to its (role, area) pulse sequence.  Used to
+# inject robust / calibrated areas without changing the role structure.
+GateLibrary = Dict[str, List[Tuple[str, float]]]
 
 
 def _physical_role(role: str) -> str:
@@ -34,11 +39,22 @@ def _physical_role(role: str) -> str:
     return "intra"
 
 
+def _two_qubit_pulses(name: str, gate_library: Optional[GateLibrary]
+                      ) -> List[Tuple[str, float]]:
+    """Return the (role, area) sequence for a 2-qubit gate.
+
+    Uses ``gate_library[name]`` when supplied (e.g. robust areas); otherwise the
+    built-in simulator-validated template.  The role sequence is identical either
+    way, so resolution and scheduling are unchanged.
+    """
+    if gate_library is not None and name in gate_library:
+        return list(gate_library[name])
+    return two_qubit_template(name)
+
+
 def _slot_index(topo: Topology, pos) -> int:
     """Convert a topology position to a flat slot index for dot math."""
-    if isinstance(topo, GridTopology):
-        return pos  # GridTopology positions are already flat slot ints
-    return pos  # LinearTopology positions are ints too
+    return pos  # both LinearTopology and GridTopology use flat int positions
 
 
 def _resolve_role(role: str, topo: Topology,
@@ -85,10 +101,11 @@ def _are_adjacent(topo: Topology, pos_a, pos_b) -> bool:
 
 
 def _emit_logical_swap_grid(topo: GridTopology, slot_a: int, slot_b: int,
-                            qubits: Tuple[int, ...]) -> List[Pulse]:
+                            qubits: Tuple[int, ...],
+                            gate_library: Optional[GateLibrary]) -> List[Pulse]:
     """Emit SWAP pulses between two adjacent slots on a grid."""
     pulses: List[Pulse] = []
-    for role, area in two_qubit_template("swap"):
+    for role, area in _two_qubit_pulses("swap", gate_library):
         edge = _resolve_role(role, topo, slot_a, slot_b,
                              qubits[0] if qubits else 0)
         pulses.append(Pulse(edge=edge, area=area, gate="swap(route)",
@@ -97,11 +114,12 @@ def _emit_logical_swap_grid(topo: GridTopology, slot_a: int, slot_b: int,
 
 
 def _emit_logical_swap_linear(topo: LinearTopology, pos: int,
-                              qubits: Tuple[int, ...]) -> List[Pulse]:
+                              qubits: Tuple[int, ...],
+                              gate_library: Optional[GateLibrary]) -> List[Pulse]:
     """Emit SWAP pulses between positions ``pos`` and ``pos+1``."""
     pulses: List[Pulse] = []
     ctrl_pos, tgt_pos = pos, pos + 1
-    for role, area in two_qubit_template("swap"):
+    for role, area in _two_qubit_pulses("swap", gate_library):
         edge = _resolve_role(role, topo, ctrl_pos, tgt_pos,
                              qubits[0] if qubits else 0)
         pulses.append(Pulse(edge=edge, area=area, gate="swap(route)",
@@ -110,7 +128,8 @@ def _emit_logical_swap_linear(topo: LinearTopology, pos: int,
 
 
 def synthesize(circuit: Circuit,
-               topology: Optional[Topology] = None
+               topology: Optional[Topology] = None,
+               gate_library: Optional[GateLibrary] = None
                ) -> Tuple[List[Pulse], Topology]:
     """Compile a logical circuit to an exchange-pulse list.
 
@@ -121,7 +140,13 @@ def synthesize(circuit: Circuit,
     topology : LinearTopology | GridTopology | None
         Physical layout.  If None, defaults to ``LinearTopology(num_qubits)``.
         For :class:`GridTopology`, call :meth:`assign_initial_layout` before
-        passing it here.
+        passing it here (or it is assigned automatically from the circuit).
+    gate_library : dict | None
+        Optional ``{gate_name: [(role, area), ...]}`` override.  When given, its
+        entries replace the built-in templates for those gates (same role
+        sequence, different areas) — e.g. valley-robust CNOT/SWAP areas from
+        :func:`eo_pulse_ir.sim.robust.robust_gate_library`.  Routing SWAPs use
+        the library's ``"swap"`` entry too.
 
     Returns
     -------
@@ -159,12 +184,14 @@ def synthesize(circuit: Circuit,
                 qa = topology.occupant[slot_a]
                 qb = topology.occupant[slot_b]
                 moved = (qa if qa >= 0 else 0, qb if qb >= 0 else 0)
-                pulses.extend(_emit_logical_swap_grid(topology, slot_a, slot_b, moved))
+                pulses.extend(_emit_logical_swap_grid(topology, slot_a, slot_b,
+                                                      moved, gate_library))
                 topology.swap_slots(slot_a, slot_b)
         else:
             for (pa, pb) in topology.route_adjacent(q_ctrl, q_tgt):
                 moved = (topology.order[pa], topology.order[pb])
-                pulses.extend(_emit_logical_swap_linear(topology, pa, moved))
+                pulses.extend(_emit_logical_swap_linear(topology, pa, moved,
+                                                        gate_library))
                 topology.swap_positions(pa)
 
         ctrl_pos = _position_of(topology, q_ctrl)
@@ -172,7 +199,7 @@ def synthesize(circuit: Circuit,
         assert _are_adjacent(topology, ctrl_pos, tgt_pos), \
             f"routing failed: {ctrl_pos} and {tgt_pos} not adjacent"
 
-        for role, area in two_qubit_template(g.name):
+        for role, area in _two_qubit_pulses(g.name, gate_library):
             edge = _resolve_role(role, topology, ctrl_pos, tgt_pos, q_ctrl)
             pulses.append(Pulse(edge=edge, area=area, gate=g.name,
                                 logical_qubits=g.qubits,

@@ -166,17 +166,27 @@ strongest non-robust baseline.
 
 1. **Ship valley-robust gate libraries.** Replace nominal-point gate templates
    with ensemble-robust ones for the device's measured valley-phase spread and
-   calibrated dJ/J. The robust areas are a drop-in `pulse_timeline.json`.
-2. **Calibration loop.** Use `calibrate_sigma` against measured RB/interleaved-RB
+   calibrated dJ/J. The robust areas are a drop-in `pulse_timeline.json`, or a
+   `gate_library` passed straight to `compile_circuit`
+   (`sim.robust.robust_gate_library`).
+2. **Place-and-route on real robust costs.** The 2-D grid place-and-route
+   (`GridTopology`) and the robust gate library compose: 2-D layout cuts the
+   routing-SWAP count for non-line connectivity, and the robust library raises
+   each operation's fidelity under the joint valley + charge noise. On a ring-4q
+   the device-anchored end-to-end fidelity rises from 0.374 (1-D, nominal) to
+   0.804 (2-D, robust) — both axes (`scripts/eo_grid_robust.py`). Unlike a
+   place-and-route that costs gates by a fixed integer, the layout and the
+   fidelity estimate here run on real, device-calibrated, valley-robust costs.
+3. **Calibration loop.** Use `calibrate_sigma` against measured RB/interleaved-RB
    fidelities to fix the per-device noise level; re-run `robust_design` per device
    class. If the valley-phase spread is *measurable and quasi-static*, per-device
    calibration can remove the mean detuning and the robust gate then absorbs the
    residual spread — the two compose.
-3. **Scheduler / controller integration.** Robust pulses cost a few extra pulses
+4. **Scheduler / controller integration.** Robust pulses cost a few extra pulses
    vs the compact gate; the scheduler and the cryo-CMOS memory model already
    budget arbitrary `(edge, area)` sequences, so the controller-memory footprint
    is computed automatically.
-4. **Scale-out.** The MPS backend (`eo_pulse_ir/sim/mps.py`,
+5. **Scale-out.** The MPS backend (`eo_pulse_ir/sim/mps.py`,
    `eo_pulse_ir/sim/mps_grape.py`) validates and designs multi-qubit operations
    where dense simulation is infeasible, for low-entanglement targets.
 

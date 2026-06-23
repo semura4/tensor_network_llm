@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from .circuit import Circuit
-from .compile import Topology, synthesize
+from .compile import GateLibrary, Topology, synthesize
 from .hardware import HardwareConfig, MemoryReport, build_memory
 from .metrics import CostMetrics, compute_metrics
 from .report import (render_report, write_instruction_memory_csv,
@@ -26,7 +26,8 @@ class CompileResult:
 
 
 def compile_circuit(circuit: Circuit, hw: Optional[HardwareConfig] = None,
-                    topology: Optional[Topology] = None) -> CompileResult:
+                    topology: Optional[Topology] = None,
+                    gate_library: Optional[GateLibrary] = None) -> CompileResult:
     """Compile a logical circuit all the way to scheduled pulses + metrics.
 
     Parameters
@@ -34,9 +35,12 @@ def compile_circuit(circuit: Circuit, hw: Optional[HardwareConfig] = None,
     topology : LinearTopology | GridTopology | None
         Physical layout.  Defaults to a 1-D chain via ``LinearTopology``.
         Pass a :class:`GridTopology` for 2-D square-lattice compilation.
+    gate_library : dict | None
+        Optional ``{gate_name: [(role, area), ...]}`` override (e.g. robust
+        areas).  Forwarded to :func:`~eo_pulse_ir.compile.synthesize`.
     """
     hw = hw or HardwareConfig()
-    pulses, topo = synthesize(circuit, topology=topology)
+    pulses, topo = synthesize(circuit, topology=topology, gate_library=gate_library)
     schedule = schedule_pulses(pulses, num_dots=topo.num_dots, j_max=hw.j_max)
     mem = build_memory(schedule, hw)
     metrics = compute_metrics(schedule, hw)
