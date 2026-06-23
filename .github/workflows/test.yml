@@ -34,6 +34,8 @@ jobs:
           eo demo -o out/demo
       - name: Smoke-test 2-D grid compilation
         run: python scripts/eo_grid_demo.py -n 4 -p ring -o out/grid_demo
+      - name: Smoke-test single-spin QSoC control-budget study
+        run: python scripts/eo_qsoc_budget.py --quick -o out/qsoc_budget
 
   simulator:
     name: physics simulator (numpy)

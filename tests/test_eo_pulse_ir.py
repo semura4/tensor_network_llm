@@ -388,5 +388,58 @@ class TestApp(unittest.TestCase):
             self.assertTrue(os.path.getsize(os.path.join(d, "index.html")) > 0)
 
 
+class TestSingleSpinQSoC(unittest.TestCase):
+    def _models(self):
+        from eo_pulse_ir.singlespin import SingleSpinControl, Workload
+        return SingleSpinControl(), Workload(), HardwareConfig()
+
+    def test_cross_check_matches_build_memory(self):
+        from eo_pulse_ir.singlespin import cross_check_against_build_memory
+        ctrl, _work, hw = self._models()
+        chk = cross_check_against_build_memory(ctrl, hw)
+        # identical CZ pulses must dedupe to one pattern word per output
+        self.assertTrue(chk["all_outputs_single_pattern"])
+        self.assertEqual(set(chk["pattern_words_per_output"].values()), {1})
+
+    def test_pattern_bank_constant_in_n(self):
+        from eo_pulse_ir.singlespin import distinct_pattern_words, cold_memory
+        ctrl, work, hw = self._models()
+        bank = distinct_pattern_words(ctrl)["total"]
+        small = cold_memory(16, ctrl, work, hw)["pattern_bank_words"]
+        large = cold_memory(1_000_000, ctrl, work, hw)["pattern_bank_words"]
+        # shared waveform bank does not grow with qubit count
+        self.assertEqual(small, large)
+        self.assertEqual(small, bank)
+
+    def test_roomtemp_lines_grow_linearly(self):
+        from eo_pulse_ir.singlespin import control_lines
+        ctrl, _work, _hw = self._models()
+        a = control_lines(100, ctrl, "roomtemp")["total"]
+        b = control_lines(1000, ctrl, "roomtemp")["total"]
+        # ~10x qubits -> ~10x lines (linear), well above the const cryo bus
+        self.assertGreater(b / a, 8.0)
+        cryo_a = control_lines(100, ctrl, "cryo")["total"]
+        cryo_b = control_lines(1000, ctrl, "cryo")["total"]
+        self.assertLess(cryo_b / cryo_a, b / a)  # cryo scales far slower
+
+    def test_cryo_interface_far_below_roomtemp(self):
+        from eo_pulse_ir.singlespin import interface_bandwidth_gbps
+        ctrl, work, _hw = self._models()
+        rt = interface_bandwidth_gbps(4096, ctrl, work, "roomtemp")
+        cryo = interface_bandwidth_gbps(4096, ctrl, work, "cryo")
+        self.assertGreater(rt, 1000.0 * cryo)  # orders of magnitude less traffic
+
+    def test_crossovers_ordered(self):
+        from eo_pulse_ir.singlespin import (crossover_wire_limit,
+                                            crossover_cold_power)
+        ctrl, _work, _hw = self._models()
+        rt = crossover_wire_limit(ctrl, "roomtemp")
+        xb = crossover_wire_limit(ctrl, "crossbar")
+        power = crossover_cold_power(ctrl)
+        # room-temp dies first, crossbar later, cryo cold-power last
+        self.assertLess(rt, xb)
+        self.assertLess(xb, power)
+
+
 if __name__ == "__main__":
     unittest.main()
