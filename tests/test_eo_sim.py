@@ -622,5 +622,60 @@ class TestLandscape(unittest.TestCase):
         self.assertTrue(svg.startswith("<svg") and svg.endswith("</svg>"))
 
 
+@unittest.skipUnless(_HAVE_NUMPY, "numpy required for the physics simulator")
+class TestLeakageAccumulation(unittest.TestCase):
+    def test_spin_cnot_leakage_saturates(self):
+        from eo_pulse_ir.native import two_qubit_template
+        from eo_pulse_ir.sim.encoding import logical_basis
+        from eo_pulse_ir.sim.fidelity import leakage
+        from eo_pulse_ir.sim.operators import exchange_propagator
+        from eo_pulse_ir.sim.robust import roles_to_edges
+        template = two_qubit_template("cx")
+        edges = roles_to_edges([r for r, _ in template])
+        areas = [a for _, a in template]
+        dim = 64
+        U = np.eye(dim, dtype=complex)
+        for (i, j), a in zip(edges, areas):
+            U = exchange_propagator(6, i, j, a) @ U
+        L = logical_basis(2)
+        state = L.astype(complex)
+        for _ in range(100):
+            state = U @ state
+        M = L.conj().T @ state
+        self.assertLess(leakage(M), 1e-5)
+
+    def test_valley_leakage_not_coherent(self):
+        from eo_pulse_ir.native import two_qubit_template
+        from eo_pulse_ir.sim.robust import roles_to_edges
+        from eo_pulse_ir.sim.valley import (
+            _apply_two_dot, _embed_spin_to_spinvalley,
+            logical_basis as spin_logical_basis, two_dot_pulse,
+        )
+        from eo_pulse_ir.sim.fidelity import leakage
+        template = two_qubit_template("cx")
+        edges = roles_to_edges([r for r, _ in template])
+        areas = [a for _, a in template]
+        dphi = 0.05 * np.pi
+        vp = np.array([0., 0., 0., dphi, dphi, dphi])
+        evs = np.full(6, 10.0)
+        ops = []
+        for (i, j), a in zip(edges, areas):
+            ops.append((i, two_dot_pulse(a, vp[j]-vp[i], evs[i], evs[j])))
+        E = _embed_spin_to_spinvalley(6)
+        Lspin = spin_logical_basis(2)
+        Lfull = (E @ Lspin).astype(complex)
+        state = Lfull.copy()
+        leaks = []
+        for _ in range(30):
+            for idx, op16 in ops:
+                state = _apply_two_dot(state, 6, idx, op16)
+            M = Lfull.conj().T @ state
+            leaks.append(leakage(M))
+        self.assertGreater(leaks[-1], leaks[0])
+        # coherent would give L_30 ~ 30^2 * L_1 = 900 * L_1
+        # sub-diffusive gives L_30 << 900 * L_1
+        self.assertLess(leaks[-1], 100 * leaks[0])
+
+
 if __name__ == "__main__":
     unittest.main()
