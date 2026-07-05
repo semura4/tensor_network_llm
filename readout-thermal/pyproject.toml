@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "readout-thermal"
+version = "0.1.0"
+description = "Self-consistent electro-thermal model of a quantum-dot charge sensor (Mills et al., PRApplied 18, 064028, Fig. 1(d))"
+requires-python = ">=3.12"
+dependencies = ["numpy", "scipy", "matplotlib"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]
