@@ -46,3 +46,55 @@ Physics-auditor: no blockers; 2 major + 3 minor findings, addressed as follows.
    current) with a strengthened docstring warning that any future
    frequency-dependent physics must replace it by the paper's value.
 Open issues: none.
+
+## M2 — thermal fixed point (2026-07-05)
+Built:
+- thermal.py: ModelParams dataclass; dissipated_power (§3.1, mean of the two
+  charge states, same adaptive trapezoidal quadrature as §2.3);
+  cooling_power (§3.2, Sigma_eff*(Te^p - Tph^p) plus optional WF term as an
+  additional cooling channel — reading documented, see QUESTIONS.md Q1);
+  background_power (§3.2, P_bg from Te(Vpp->0) = Te0; raises for Te0 < Tph).
+- selfconsistent.py: residual R(Te) (§3.3); solve_te with brentq on
+  [Tph, 10 K], explicit sign-change check at both bracket ends, uniqueness
+  check (exactly one sign change on a 200-point grid), hard ValueError on
+  no-root/non-unique, brentq disp=True raises on non-convergence — never
+  clips; solve_te_grid vectorized wrapper.
+Tests: T3 (|Te - Te0| < 1e-6 K at Vpp -> 0), T4 (Te strictly increasing over
+3 decades of Vpp), T5 (exactly one sign change for Vpp from 1e-3 to 100
+kB*Te0/e), T7 (argmax DeltaX with self-heating strictly below the heating-off
+argmax, both interior; argmax SNR == argmax DeltaX since sigma_I is constant,
+§4), T8 (P_diss >= 0 on a (Te, eps_b, Vpp) grid including Vpp = 0), plus P_bg
+consistency and out-of-bracket hard-failure tests.
+Pytest: 22 passed (before audit fixes; 29 after, including M3 drafts).
+Physics-auditor: no blockers; 2 major + 7 minor, addressed as follows.
+1. (major) Uniqueness check was a 200-point sign count that could miss
+   tangent/close double roots and never verified the §3.3 condition. Fixed:
+   solve_te now asserts R strictly negative AND strictly monotone decreasing
+   on a grid beyond the found root (_assert_monotone_beyond); a tangent root
+   above would violate monotone decrease and raise.
+2. (major) No test pinned the P_diss magnitude/amplitude convention (scale
+   errors degenerate with fitted Sigma_eff). Fixed: new test pins the §3.1
+   small-signal limit per state P -> G(eps)*Vpp^2/8 (from §2.2) and the
+   mean-of-states, rtol 1e-5.
+3. (minor) T3 tolerance loosened vs. solver tolerance. Fixed: e*Vpp =
+   1e-4*kB*Te0 where the physical shift is ~1e-10 K; bound tightened to
+   1e-9 K.
+4. (minor) T5 was circular (tested the same helper solve_te uses). Fixed:
+   test adds an independent 1500-point sign count computed directly from
+   residual().
+5. (minor) te0 >= tph restriction was smuggled. Now logged as QUESTIONS.md
+   Q3 (P_bg >= 0 reading).
+6. (minor) WF term's induced modification of the §3.3 residual and P_bg was
+   not covered by Q1. Q1 extended.
+7. (minor) R(Te) was stepwise-discontinuous inside brentq (te-dependent
+   adaptive n_t). Fixed: n_t frozen once per solve at the worst case
+   Te = Tph.
+8. (minor) Zero-sample handling in count_sign_changes contradicted its
+   comment; r_lo == 0 bypassed uniqueness. Fixed: zeros inherit the
+   preceding sign; the monotone-beyond check now runs in the boundary-root
+   corner too.
+9. (minor) p in {4,6} and include_wf paths untested. Fixed: new sensitivity
+   test covers P_bg closed form and Te(Vpp->0) = Te0 for p in {4,5,6} x
+   include_wf in {False, True}.
+Open issues: QUESTIONS.md Q1 (WF reading), Q3 (te0 >= tph constraint);
+default configuration unaffected by both.
