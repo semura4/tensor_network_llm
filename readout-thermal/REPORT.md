@@ -98,3 +98,55 @@ Physics-auditor: no blockers; 2 major + 7 minor, addressed as follows.
    include_wf in {False, True}.
 Open issues: QUESTIONS.md Q1 (WF reading), Q3 (te0 >= tph constraint);
 default configuration unaffected by both.
+
+## M3 — sweep and figure (2026-07-05)
+Built:
+- noise.py (§4): sigma_i = sqrt(S_I*B) as the single fitted constant used
+  directly; optional shot term sigma_shot = sqrt(2*e*Ibar*B) with Ibar as an
+  explicit caller input (averaging convention not in SPEC — QUESTIONS.md Q2);
+  total_sigma adds the optional term in quadrature; snr = DeltaX/sigma (§4).
+- sweep.py: sweep() composes §3.3 Te (or Te0 when self_heating=False, the
+  Sigma_eff -> infinity limit), §2.4 DeltaX (fixed or reoptimize_bias), §4
+  SNR over a Vpp grid; µVpp/mK conversion helpers at the I/O boundary.
+- scripts/fig1d.py: dual-axis figure (SNR left, Te [mK] right, log x in
+  µVpp) with PLACEHOLDER constants; wrote figures/fig1d_placeholder.png.
+  With placeholders (A = 1 nA, Te0 = 100 mK, Tph = 50 mK, delta_eps =
+  2 kB*Te0, Sigma_eff = 5e-11 W/K^5, sigma_I = 0.2 pA) the model already
+  produces the Fig. 1(d) phenomenology: SNR rollover (optimum ~58 µVpp) and
+  superlinear Te rise — shapes emerge from the model, not the fit (§5).
+Tests: §4 definitions (snr, shot term off by default, quadrature sum), unit
+helpers roundtrip, sweep composition (Te matches §3.3 path, snr = dx/sigma,
+heating-off pins Te0 and does not reduce the signal), reoptimized bias never
+worse than fixed bias.
+Pytest: 29 passed. PNG produced (figures/fig1d_placeholder.png).
+Physics-auditor: 1 blocker + 2 major + 4 minor, all addressed before commit.
+1. (BLOCKER) noise.total_sigma implemented a quadrature sum of sigma_I and
+   the shot term — an equation absent from SPEC §4 — and implicitly redefined
+   SNR's denominator. Removed entirely: noise.py now contains only the
+   literal §4 expressions (sigma_shot = sqrt(2*e*Ibar*B); SNR =
+   DeltaX/sigma_I); the combination rule and SNR-denominator question are
+   logged in the extended Q2. sweep() divides by sigma_i directly.
+2. (major) reoptimize_bias reading unlogged: the §3.3 heat balance uses the
+   FIXED params.eps_b, with eps_b re-optimized afterwards at the resulting
+   Te (no joint (Te, eps_b) fixed point). Logged as QUESTIONS.md Q4 and in
+   the sweep() docstring.
+3. (major) test_sweep_composition could not catch a sweep that computed the
+   signal at the wrong Te. Fixed: every point is now pinned by independent
+   recomputation (solve_te + delta_x + division) at rtol 1e-12, for both
+   heating-on and heating-off paths.
+4. (minor) shot_sigma silently applied abs(Ibar) despite Q2. Fixed: raises
+   ValueError for Ibar < 0 pending Q2.
+5. (minor) heating-off >= heating-on signal assertion was unproven physics
+   not in SPEC. Removed; the sanctioned heating comparison remains T7.
+6. (minor) TPH in fig1d.py presented 50 mK as the paper's value. Now marked
+   as a placeholder to be replaced by the cited fridge base temperature in
+   M4.
+7. (minor) dead import E in fig1d.py removed.
+Open issues: QUESTIONS.md Q2 (shot-noise conventions), Q4 (reoptimize_bias
+coupling); both default-off / M4-only.
+
+## M4 — calibration: BLOCKED (2026-07-05)
+data/mills_fig1d_snr.csv and data/mills_fig1d_te.csv do not exist yet.
+Digitizing Fig. 1(d) is designated a HUMAN task (see data/README.md for the
+required format). Per the milestone definition M4 does not start until the
+human provides these files; stopping after M3 as instructed.

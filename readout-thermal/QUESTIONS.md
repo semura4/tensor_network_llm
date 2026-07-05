@@ -14,10 +14,22 @@ Please confirm before the M4 sensitivity table (criterion (c)) is interpreted.
 
 ## Q2 (M3, non-blocking — shot-noise flag defaults to False)
 SPEC §4 defines the optional shot-noise term sigma_shot^2 = 2*e*Ibar*B but
-does not define how the mean current Ibar is averaged (over the drive period?
-over the two charge states? absolute value?). noise.shot_sigma therefore takes
-Ibar as an explicit caller-supplied input and no averaging convention is baked
-in. Please specify Ibar before the shot-noise flag is used in M4+.
+does not define (i) how the mean current Ibar is averaged (over the drive
+period? over the two charge states? absolute value?), (ii) how sigma_shot
+combines with sigma_I (quadrature sum?), or (iii) whether SNR — literally
+defined in §4 as DeltaX/sigma_I — uses the combined noise when the flag is
+on. noise.shot_sigma therefore only evaluates the literal §4 expression,
+takes Ibar as an explicit caller-supplied input, raises for Ibar < 0, and NO
+combination rule or SNR redefinition is implemented. Please specify all three
+before the shot-noise flag is used in M4+.
+
+## Q4 (M3, non-blocking — affects only the reoptimize_bias=True curve)
+With reoptimize_bias=True (SPEC §2.4), which eps_b enters the §3.1/§3.3 heat
+balance? Implemented reading (sweep.sweep): Te is solved at the FIXED
+params.eps_b, then eps_b is re-optimized for the signal at that Te — i.e. no
+joint (Te, eps_b) self-consistent fixed point. A device truly operated at the
+re-optimized bias would dissipate at that bias, which would couple the two.
+Please confirm which reading the M4 reoptimize_bias curve should use.
 
 ## Q3 (M2, documented constraint)
 thermal.background_power raises for Te0 < Tph: the §3.2 condition
