@@ -56,5 +56,8 @@ predict device performance.
   regimes are barely affected (τ_latch is very long at 1–2 K). Includes
   regimes with **no interior optimum**; do not read it as "there is always an
   optimal temperature."
-- Fig I shows the nonlinear channel is advantageous only in a **bounded**
-  temperature band, and only for the chosen illustrative `V_sig`, `R`, `t`.
+- Fig I now uses the fully constrained nonlinear error (T1 + τ_latch). With
+  default parameters, the nonlinear channel **never beats** the linear channel;
+  the advantage island from the bare Kramers model is eliminated by the T1 and
+  latch-decay penalties. For the nonlinear channel to win, barriers must be
+  smaller or the linear channel weaker (`V_sig`, `R`).

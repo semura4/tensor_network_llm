@@ -16,7 +16,8 @@ amplifier**, not the qubit, not a quantum gate, and not quantum coherence.
    the **conditions under which it does NOT exist** (Fig G, Fig H).
 2. How that window depends on `DeltaU_0`, `DeltaU_1`, `Gamma_attempt`, and `A`.
 3. The **bounded** conditions under which a latched nonlinear readout could
-   beat a Johnson–Nyquist-limited linear RF channel (Fig I).
+   beat a Johnson–Nyquist-limited linear RF channel, with T1 and τ_latch
+   constraints included in the nonlinear error (Fig I).
 4. A first-order, honest sensitivity to **noise spectral shaping** via a
    simplified OU correction (Fig J).
 5. How **spin relaxation T1(T)** and **latch lifetime τ_latch(T)** constrain
@@ -73,15 +74,18 @@ The following must NOT be stated anywhere in this repository:
      state-1 barrier.
    - Near-equal barriers destroy the window regardless of other parameters.
 
-3. **When does nonlinear beat linear (JN)?** The 2-D advantage map (Fig I
-   right panel) shows the nonlinear channel wins only in a **bounded island**
-   in `(T, t)` space. For default parameters, the island spans roughly
-   `T ∈ [5, 10] K` and `t ∈ [10^-7, 10^-5] s`. The boundary (black contour
-   at equal error) sweeps from `T ≈ 5 K` at `t = 10^-5 s` to `T ≈ 10 K` at
-   `t = 10^-7 s`. **In the 1–4 K focus band with default high barriers, the
-   linear channel always wins** — the nonlinear channel's advantage requires
-   either smaller barriers (to shift the island down in `T`) or different
-   `V_sig`/`R` (to weaken the linear channel). This is an honest finding.
+3. **When does nonlinear beat linear (JN)?** Fig I now uses the fully
+   constrained nonlinear error (T1 + τ_latch included). With these
+   constraints, the nonlinear advantage island **shrinks or vanishes**
+   compared to the bare-Kramers comparison. For default parameters, the
+   nonlinear channel **never beats** the linear channel at any `(T, t)` —
+   the T1 and latch-decay penalties push the nonlinear error above the JN
+   floor everywhere. The 2-D advantage map (right panel) includes T1(T) and
+   τ_latch(T) ceiling lines. **In the 1–4 K focus band with default high
+   barriers, the linear channel always wins.** For the nonlinear channel to
+   win, one needs either smaller barriers (to shift the window to lower T
+   where T1 and τ_latch are long) or different `V_sig`/`R` (to weaken the
+   linear channel). This is an honest finding.
 
 4. **When does heating break the scheme?** Three mechanisms: (a) `Gamma_0`
    grows until state 0 falsely escapes (`Gamma_1/Gamma_0 → 1`, `P_err → 0.5`);

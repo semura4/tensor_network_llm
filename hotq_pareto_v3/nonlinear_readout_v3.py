@@ -493,7 +493,9 @@ def fig_I(p: Params):
     # --- 1-D slice (left panel) ---
     G0_1d = kramers_rate(p.DeltaU0, p.eta0, p.A, T_1d, p.Gamma_attempt)
     G1_1d = kramers_rate(p.DeltaU1, p.eta1, p.A, T_1d, p.Gamma_attempt)
-    Perr_nl_1d = readout_error(G0_1d, G1_1d, t_fixed)
+    T1_1d = spin_T1(T_1d, p)
+    tau_l_1d = latch_lifetime(T_1d, p)
+    Perr_nl_1d = readout_error_full(G0_1d, G1_1d, t_fixed, T1_1d, tau_l_1d)
     Perr_lin_1d = perr_linear(T_1d, t_fixed, p)
 
     # --- 2-D advantage map (right panel) ---
@@ -502,7 +504,9 @@ def fig_I(p: Params):
     TT, tt = np.meshgrid(T_2d, t_2d)
     G0_2d = kramers_rate(p.DeltaU0, p.eta0, p.A, TT, p.Gamma_attempt)
     G1_2d = kramers_rate(p.DeltaU1, p.eta1, p.A, TT, p.Gamma_attempt)
-    Perr_nl_2d = readout_error(G0_2d, G1_2d, tt)
+    T1_2d = spin_T1(TT, p)
+    tau_l_2d = latch_lifetime(TT, p)
+    Perr_nl_2d = readout_error_full(G0_2d, G1_2d, tt, T1_2d, tau_l_2d)
     Perr_lin_2d = perr_linear(TT, tt, p)
     # advantage ratio: < 1 means nonlinear wins, > 1 means linear wins
     # use log10 for symmetric color scale
@@ -517,7 +521,7 @@ def fig_I(p: Params):
     ax1.semilogy(T_1d, np.clip(Perr_lin_1d, 1e-16, 1),
                  color="tab:purple", label="linear RF (JN limited)")
     ax1.semilogy(T_1d, np.clip(Perr_nl_1d, 1e-16, 1),
-                 color="tab:red", label="nonlinear latched")
+                 color="tab:red", label=r"nonlinear latched (T1+$\tau_{\rm latch}$)")
     ax1.set_xlabel("Temperature T [K]")
     ax1.set_ylabel(r"$P_{\mathrm{err}}$")
     ax1.axvspan(1.0, 4.0, color="gray", alpha=0.12, label="focus 1-4 K")
@@ -538,12 +542,20 @@ def fig_I(p: Params):
     ax2.set_ylabel("Readout integration time t [s]")
     ax2.contour(T_2d, t_2d, ratio, levels=[0], colors="black", linewidths=1.5)
     ax2.axvspan(1.0, 4.0, color="white", alpha=0.08)
+    T1_ceil = np.clip(spin_T1(T_2d, p), None, t_2d[-1])
+    tau_l_ceil = np.clip(latch_lifetime(T_2d, p), None, t_2d[-1])
+    ax2.plot(T_2d, T1_ceil, "r--", lw=1.2, label=r"$T_1(T)$")
+    ax2.plot(T_2d, tau_l_ceil, ":", color="tab:orange", lw=1.2,
+             label=r"$\tau_{\rm latch}(T)$")
+    ax2.legend(fontsize=7, loc="lower left")
     cbar = fig.colorbar(pcm, ax=ax2)
     cbar.set_label(r"$\log_{10}(P_{\mathrm{err,NL}} / P_{\mathrm{err,lin}})$"
                    "\n(blue = nonlinear wins, red = linear wins)")
-    ax2.set_title("2-D advantage map (NL vs linear JN)", fontsize=9)
+    ax2.set_title(r"2-D advantage map (NL with T1+$\tau_{\rm latch}$ vs linear JN)",
+                  fontsize=9)
 
-    fig.suptitle("Fig I: linear (Johnson-Nyquist) vs nonlinear latched readout", fontsize=11)
+    fig.suptitle(r"Fig I: linear (JN) vs nonlinear latched readout (with T1 + $\tau_{\rm latch}$)",
+                 fontsize=11)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(os.path.join(FIG_DIR, "figI_compare_linear_vs_nonlinear_readout.png"), dpi=140)
     plt.close(fig)

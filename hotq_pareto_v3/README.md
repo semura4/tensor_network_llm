@@ -201,7 +201,7 @@ Sweep ranges: `T` 0.1–10 K (focus 1–4 K), `DeltaU_0` 1–20 meV,
 | `figF_kramers_rates_vs_temperature.png` | Γ₀, Γ₁ and Γ₁/Γ₀ vs T |
 | `figG_error_heatmap_time_temperature.png` | **CENTRAL**: P_err phase diagram over (t, T) with T1(T) + τ_latch(T) ceilings, two panels: high barriers (window at 5–9 K) and small barriers (window at 0.5–2 K in the focus band) |
 | `figH_stochastic_resonance_optimum.png` | F_readout vs T — 2-panel: bare Kramers (left) vs with T1 + τ_latch (right); includes regimes with no interior optimum |
-| `figI_compare_linear_vs_nonlinear_readout.png` | linear (JN) vs nonlinear latched readout |
+| `figI_compare_linear_vs_nonlinear_readout.png` | linear (JN) vs nonlinear latched readout (with T1 + τ_latch constraints); 2-D map includes T1 and τ_latch ceiling lines |
 | `figJ_colored_noise_sensitivity.png` | OU colored-noise sensitivity (simplified) |
 | `figK_parameter_dependence.png` | T* vs barrier gap, absolute barrier height, Γ_attempt, and drive A |
 
