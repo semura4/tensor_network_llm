@@ -181,6 +181,7 @@ def ou_rate_correction_factor(sigma, T, tau_c, gamma_char):
     fast_boost_exponent = sigma ** 2 / (2.0 * (KB_MEV_PER_K * T) ** 2)
     adiab = (gamma_char * tau_c) / (1.0 + gamma_char * tau_c)
     effective_exponent = (1.0 - adiab) * fast_boost_exponent
+    effective_exponent = np.minimum(effective_exponent, 500.0)
     return np.exp(effective_exponent)
 
 
@@ -203,22 +204,29 @@ def fig_F(p: Params):
     G1 = kramers_rate(p.DeltaU1, p.eta1, p.A, T, p.Gamma_attempt)
     ratio = G1 / np.maximum(G0, 1e-300)
 
+    G0_clipped = np.clip(G0, 1e-15, None)
+    G1_clipped = np.clip(G1, 1e-15, None)
+    ratio_clipped = np.clip(ratio, 1e-1, None)
+
     fig, ax1 = plt.subplots(figsize=(7, 5))
-    ax1.semilogy(T, G0, color="tab:blue", label=r"$\Gamma_0$ (state 0, should NOT escape)")
-    ax1.semilogy(T, G1, color="tab:red", label=r"$\Gamma_1$ (state 1, should escape)")
+    ax1.semilogy(T, G0_clipped, color="tab:blue", label=r"$\Gamma_0$ (state 0, should NOT escape)")
+    ax1.semilogy(T, G1_clipped, color="tab:red", label=r"$\Gamma_1$ (state 1, should escape)")
     ax1.set_xlabel("Temperature T [K]")
     ax1.set_ylabel("Kramers escape rate [Hz]")
+    ax1.set_ylim(1e-15, 1e12)
     ax1.axvspan(1.0, 4.0, color="gray", alpha=0.12, label="focus band 1-4 K")
+    ax1.axhline(1.0 / p.t_readout, color="black", ls=":", lw=0.8,
+                label=f"1/t_readout = {1/p.t_readout:.0e} Hz")
     ax1.grid(True, which="both", alpha=0.25)
 
     ax2 = ax1.twinx()
-    ax2.semilogy(T, ratio, color="tab:green", ls="--", label=r"$\Gamma_1/\Gamma_0$")
+    ax2.semilogy(T, ratio_clipped, color="tab:green", ls="--", label=r"$\Gamma_1/\Gamma_0$")
     ax2.set_ylabel(r"discrimination ratio $\Gamma_1/\Gamma_0$", color="tab:green")
     ax2.tick_params(axis="y", labelcolor="tab:green")
 
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc="lower right", fontsize=8)
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="center right", fontsize=7)
     ax1.set_title("Fig F: Kramers rates vs temperature (illustrative parameters)")
     fig.tight_layout()
     fig.savefig(os.path.join(FIG_DIR, "figF_kramers_rates_vs_temperature.png"), dpi=140)
@@ -279,17 +287,20 @@ def fig_G(p: Params):
 def fig_H(p: Params):
     T = np.linspace(0.1, 10.0, 500)
 
-    # Three illustrative regimes:
-    #  (a) default -> an interior optimum exists
+    # Four illustrative regimes:
+    #  (a) default -> interior optimum at ~7 K
     #  (b) barriers nearly equal -> weak / no useful optimum
     #  (c) very close barriers + short time -> optimum washed out
+    #  (d) smaller barriers -> optimum INSIDE the 1-4 K focus band
     regimes = [
-        dict(label="(a) DeltaU0=6, DeltaU1=4 (clear window)",
+        dict(label="(a) DeltaU0=6, DeltaU1=4 (optimum ~7 K)",
              DeltaU0=6.0, DeltaU1=4.0, t=1e-6, color="tab:blue"),
-        dict(label="(b) DeltaU0=6, DeltaU1=5.7 (weak/absent window)",
+        dict(label="(b) DeltaU0=6, DeltaU1=5.7 (weak/absent)",
              DeltaU0=6.0, DeltaU1=5.7, t=1e-6, color="tab:orange"),
-        dict(label="(c) DeltaU0=6, DeltaU1=4, t=1 ns (window washed out)",
+        dict(label="(c) DeltaU0=6, DeltaU1=4, t=1 ns (washed out)",
              DeltaU0=6.0, DeltaU1=4.0, t=1e-9, color="tab:green"),
+        dict(label="(d) DeltaU0=1.5, DeltaU1=0.8 (optimum ~2 K)",
+             DeltaU0=1.5, DeltaU1=0.8, t=1e-6, color="tab:purple"),
     ]
 
     fig, ax = plt.subplots(figsize=(7.5, 5.5))
@@ -368,21 +379,27 @@ def fig_I(p: Params):
 # Fig J : Colored (OU) noise sensitivity
 # --------------------------------------------------------------------------
 def fig_J(p: Params):
-    T = np.linspace(0.1, 10.0, 300)
+    # start from 1 K: the fast-noise OU approximation is invalid when sigma >> kBT,
+    # which happens at very low T and produces unphysical spikes
+    T = np.linspace(1.0, 10.0, 300)
     t = p.t_readout
     gamma_char = p.Gamma_attempt  # characteristic escape-attempt scale for the knob
 
     # sweep OU noise strength sigma [meV] (barrier fluctuation std) and tau_c
-    sigmas = [0.0, 0.05, 0.15]          # meV
-    tau_cs = [1e-11, 1e-9]              # s  (fast vs slower correlation)
+    # sigma must be comparable to kBT (~0.1-0.9 meV in the active range) to have
+    # a visible effect on the rate via exp(sigma^2/(2 (kBT)^2))
+    sigmas = [0.0, 0.2, 0.5]            # meV  (0.5 meV ~ kBT at 6 K)
+    tau_cs = [1e-12, 1e-9]              # s  (fast vs slower correlation)
 
     fig, ax = plt.subplots(figsize=(7.5, 5.5))
     rows = []
     for sigma in sigmas:
         for tau_c in tau_cs:
             corr = ou_rate_correction_factor(sigma, T, tau_c, gamma_char)
-            G0 = kramers_rate(p.DeltaU0, p.eta0, p.A, T, p.Gamma_attempt) * corr
-            G1 = kramers_rate(p.DeltaU1, p.eta1, p.A, T, p.Gamma_attempt) * corr
+            G0 = np.minimum(kramers_rate(p.DeltaU0, p.eta0, p.A, T, p.Gamma_attempt) * corr,
+                            p.Gamma_attempt)
+            G1 = np.minimum(kramers_rate(p.DeltaU1, p.eta1, p.A, T, p.Gamma_attempt) * corr,
+                            p.Gamma_attempt)
             F = readout_fidelity(G0, G1, t)
             lbl = f"sigma={sigma:.2f} meV, tau_c={tau_c:.0e}s"
             ls = "-" if tau_c == tau_cs[0] else "--"

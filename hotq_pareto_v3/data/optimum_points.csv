@@ -1,4 +1,5 @@
 regime,DeltaU0_meV,DeltaU1_meV,t_readout_s,T_opt_K,F_readout_at_opt,optimum_type
-"(a) DeltaU0=6, DeltaU1=4 (clear window)",6.000,4.000,1.000e-06,7.1034,0.941371,interior
-"(b) DeltaU0=6, DeltaU1=5.7 (weak/absent window)",6.000,5.700,1.000e-06,8.9683,0.626793,interior
-"(c) DeltaU0=6, DeltaU1=4, t=1 ns (window washed out)",6.000,4.000,1.000e-09,10.0000,0.507905,boundary(no interior optimum)
+"(a) DeltaU0=6, DeltaU1=4 (optimum ~7 K)",6.000,4.000,1.000e-06,7.1034,0.941371,interior
+"(b) DeltaU0=6, DeltaU1=5.7 (weak/absent)",6.000,5.700,1.000e-06,8.9683,0.626793,interior
+"(c) DeltaU0=6, DeltaU1=4, t=1 ns (washed out)",6.000,4.000,1.000e-09,10.0000,0.507905,boundary(no interior optimum)
+"(d) DeltaU0=1.5, DeltaU1=0.8 (optimum ~2 K)",1.500,0.800,1.000e-06,0.7944,0.999992,interior
