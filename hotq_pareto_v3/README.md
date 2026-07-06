@@ -40,9 +40,10 @@ a measured value.** Before presenting this to AIST or any experimental group,
 the following must be replaced with measured numbers:
 
 - `DeltaU_s` — effective barriers of the latched charge readout stage
+- `DeltaU_latch` — reverse barrier for de-latching
 - `Gamma_attempt` — attempt frequency
-- `T1` — spin relaxation time (bounds the usable readout window)
-- latch hold time (metastable charge lifetime)
+- `T1(T)` — spin relaxation time vs temperature (bounds readout from above)
+- `tau_latch(T)` — metastable charge hold time vs temperature (bounds readout from above)
 - RF readout SNR
 - temperature-dependent noise (including the resistance `R` in the JN term)
 
@@ -121,17 +122,34 @@ Two-mechanism phenomenological model (all values **illustrative**):
 - `rate_multi = 94.1 Hz/K^5` — Raman / multi-phonon process
 - Illustrative values: `T1(1 K) ≈ 1 ms`, `T1(4 K) ≈ 10 µs`
 
-T1-constrained readout error:
+### Latch lifetime τ_latch(T) — metastable charge hold time
+
+The latched (escaped) charge state is metastable. It can de-latch (return to
+the original well) via a reverse Kramers escape with barrier `DeltaU_latch`:
 
 ```
-p_survive = exp(-t / T1(T))
-P_err_T1  = p_survive * P_err_kramers  +  (1 - p_survive) * 0.5
+Gamma_delatch(T) = Gamma_attempt * exp(-DeltaU_latch / (kB * T))
+tau_latch(T)     = 1 / Gamma_delatch(T)
+```
+
+- `DeltaU_latch = 8 meV` (illustrative) — the reverse barrier for de-latching
+- Illustrative values: `tau_latch(4 K) ≈ 12 s` (no constraint),
+  `tau_latch(10 K) ≈ 11 µs` (comparable to `t_readout`)
+
+### Combined readout error (T1 + latch decay)
+
+The readout signal is valid only if the spin survives **and** the latch
+persists. If either fails, the outcome is a coin flip (`P_err = 0.5`):
+
+```
+p_signal = exp(-t / T1(T)) * exp(-t / tau_latch(T))
+P_err    = p_signal * P_err_kramers  +  (1 - p_signal) * 0.5
 ```
 
 The readout window is now bounded from **below** (Kramers rate too slow at
-low `T`) and from **above** (T1 too short at high `T`). Fig G shows the
-`T1(T)` ceiling as a red dashed line; Fig H compares fidelity with and
-without the T1 constraint.
+low `T`) and from **above** (T1 too short AND/OR latch decays at high `T`).
+Fig G shows both ceilings: `T1(T)` (red dashed) and `τ_latch(T)` (orange
+dotted); Fig H compares fidelity bare vs with both constraints.
 
 ### Colored (Ornstein–Uhlenbeck) noise — simplified
 
@@ -169,6 +187,7 @@ shaping* without exaggeration.
 | `R` | 1 kΩ | effective source resistance (illustrative) |
 | `rate_phonon` | 906 Hz/K | one-phonon T1 relaxation rate (illustrative) |
 | `rate_multi` | 94.1 Hz/K⁵ | multi-phonon T1 relaxation rate (illustrative) |
+| `DeltaU_latch` | 8 meV | reverse barrier for de-latching (illustrative) |
 
 Reference scales: `kB T ≈ 0.086 meV` at 1 K, `≈ 0.345 meV` at 4 K.
 Sweep ranges: `T` 0.1–10 K (focus 1–4 K), `DeltaU_0` 1–20 meV,
@@ -180,8 +199,8 @@ Sweep ranges: `T` 0.1–10 K (focus 1–4 K), `DeltaU_0` 1–20 meV,
 | file | content |
 |---|---|
 | `figF_kramers_rates_vs_temperature.png` | Γ₀, Γ₁ and Γ₁/Γ₀ vs T |
-| `figG_error_heatmap_time_temperature.png` | **CENTRAL**: P_err phase diagram over (t, T) with T1(T) ceiling, two panels: high barriers (window at 5–9 K) and small barriers (window at 0.5–2 K in the focus band) |
-| `figH_stochastic_resonance_optimum.png` | F_readout vs T — 2-panel: without T1 (left) vs with T1 (right); includes regimes with no interior optimum |
+| `figG_error_heatmap_time_temperature.png` | **CENTRAL**: P_err phase diagram over (t, T) with T1(T) + τ_latch(T) ceilings, two panels: high barriers (window at 5–9 K) and small barriers (window at 0.5–2 K in the focus band) |
+| `figH_stochastic_resonance_optimum.png` | F_readout vs T — 2-panel: bare Kramers (left) vs with T1 + τ_latch (right); includes regimes with no interior optimum |
 | `figI_compare_linear_vs_nonlinear_readout.png` | linear (JN) vs nonlinear latched readout |
 | `figJ_colored_noise_sensitivity.png` | OU colored-noise sensitivity (simplified) |
 | `figK_parameter_dependence.png` | T* vs barrier gap, absolute barrier height, Γ_attempt, and drive A |
@@ -191,13 +210,14 @@ honestly that an optimal window exists for *some* conditions and vanishes for
 others. The left panel (default high barriers) has its window at 5–9 K; the
 right panel (small barriers `DeltaU_0=1.5, DeltaU_1=0.8 meV`) demonstrates that
 the window can fall **inside the 1–4 K focus band** when barriers are small
-enough. Both panels now include the `T1(T)` ceiling (red dashed line) showing
-where spin relaxation cuts off the usable readout time, and the error heatmap
-uses the T1-constrained `P_err_T1`. Fig H is a 2-panel comparison: left panel
-shows fidelity *without* T1, right panel shows fidelity *with* T1 — the T1
-constraint degrades high-barrier regimes significantly (F drops from ~0.94 to
-~0.66) while small-barrier regimes are barely affected. Fig H deliberately
-includes regimes where **no interior optimum exists**.
+enough. Both panels now include two ceiling lines: `T1(T)` (red dashed) and
+`τ_latch(T)` (orange dotted), and the error heatmap uses the fully constrained
+`P_err` (T1 + latch decay). Fig H is a 2-panel comparison: left panel shows
+bare Kramers fidelity, right panel shows fidelity with both T1 and latch
+lifetime — the combined constraint degrades high-barrier regimes significantly
+(F drops from ~0.94 to ~0.66) while small-barrier regimes are barely affected
+(τ_latch is very long at 1–2 K). Fig H deliberately includes regimes where
+**no interior optimum exists**.
 
 **Fig K shows parameter dependence** (final report question 2). Key findings:
 T* decreases with larger barrier gap, higher Γ_attempt, and larger drive A.

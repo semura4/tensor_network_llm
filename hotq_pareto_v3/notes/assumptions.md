@@ -46,10 +46,27 @@ All values are **illustrative**, not measured.
   (Raman/multi-phonon). All values **illustrative**.
 - Spin survives readout with probability `p_survive = exp(-t / T1(T))`.
   If it relaxes, charge state randomizes → coin flip (P_err = 0.5).
-- T1-constrained error: `P_err_T1 = p_survive * P_err_kramers + (1-p_survive)*0.5`.
 - The T1 model is a simple power-law fit. Real T1(T) depends on valley
   splitting, magnetic field, spin-orbit coupling, and phonon spectral density
   — none of which are modelled.
+
+## Latch lifetime τ_latch(T) (Fig G, Fig H)
+
+- Reverse Kramers escape from the latched charge well:
+  `Gamma_delatch(T) = Gamma_attempt * exp(-DeltaU_latch / (kB T))`,
+  `tau_latch(T) = 1 / Gamma_delatch(T)`.
+- `DeltaU_latch = 8 meV` (**illustrative**). The reverse barrier is larger
+  than the forward barriers, so the latch is metastable by design.
+- If the latch decays before readout, the detector sees "no escape" regardless
+  of the true state. In the model this is approximated as a coin flip.
+- Same attempt frequency `Gamma_attempt` is used for both forward and reverse
+  escape. Real devices may have different prefactors.
+
+## Combined readout error
+
+- `p_signal = exp(-t/T1) * exp(-t/tau_latch)`: signal is valid only if spin
+  survives AND latch persists. If either fails, P_err = 0.5.
+- `P_err = p_signal * P_err_kramers + (1 - p_signal) * 0.5`.
 
 ## Colored noise (Fig J)
 

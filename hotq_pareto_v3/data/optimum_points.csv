@@ -1,5 +1,5 @@
 regime,DeltaU0_meV,DeltaU1_meV,t_readout_s,T_opt_K,F_readout_at_opt,optimum_type
-"(a) DeltaU0=6, DeltaU1=4 (no T1)",6.000,4.000,1.000e-06,7.1034,0.941371,interior
-"(a) DeltaU0=6, DeltaU1=4 (with T1)",6.000,4.000,1.000e-06,5.9725,0.659949,interior
-"(d) DeltaU0=1.5, DeltaU1=0.8 (no T1)",1.500,0.800,1.000e-06,0.7944,0.999992,interior
-"(d) DeltaU0=1.5, DeltaU1=0.8 (with T1)",1.500,0.800,1.000e-06,0.7745,0.999625,interior
+"(a) DeltaU0=6, DeltaU1=4 (bare)",6.000,4.000,1.000e-06,7.1034,0.941371,interior
+"(a) DeltaU0=6, DeltaU1=4 (full)",6.000,4.000,1.000e-06,5.9725,0.659920,interior
+"(d) DeltaU0=1.5, DeltaU1=0.8 (bare)",1.500,0.800,1.000e-06,0.7944,0.999992,interior
+"(d) DeltaU0=1.5, DeltaU1=0.8 (full)",1.500,0.800,1.000e-06,0.7745,0.999625,interior

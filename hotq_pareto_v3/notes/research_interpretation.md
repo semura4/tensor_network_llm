@@ -19,9 +19,10 @@ amplifier**, not the qubit, not a quantum gate, and not quantum coherence.
    beat a Johnson–Nyquist-limited linear RF channel (Fig I).
 4. A first-order, honest sensitivity to **noise spectral shaping** via a
    simplified OU correction (Fig J).
-5. How **spin relaxation T1(T)** constrains the usable readout window from
-   above — the readout time `t` cannot exceed `T1(T)` without losing the spin
-   signal (Fig G ceiling line, Fig H with/without T1 comparison).
+5. How **spin relaxation T1(T)** and **latch lifetime τ_latch(T)** constrain
+   the usable readout window from above — the readout time `t` cannot exceed
+   `min(T1, τ_latch)` without losing the signal (Fig G ceiling lines, Fig H
+   bare-vs-constrained comparison).
 
 ## What this model CANNOT show
 
@@ -53,10 +54,11 @@ The following must NOT be stated anywhere in this repository:
    (Fig G left panel, Fig H regime (c) gives a boundary-only optimum).
    With smaller barriers (`DeltaU_0 = 1.5, DeltaU_1 = 0.8 meV`), the
    optimum shifts to `T* ≈ 0.8 K` inside the 1–4 K focus band (Fig G right
-   panel, Fig H regime (d)). **With T1(T) included**, the window is bounded
-   from above: spin relaxation degrades the high-barrier regime significantly
-   (F drops from ~0.94 to ~0.66 for default parameters) while leaving
-   small-barrier regimes largely intact (T1 is long enough at 1–2 K).
+   panel, Fig H regime (d)). **With T1(T) and τ_latch(T) included**, the
+   window is bounded from above by two mechanisms: spin relaxation and latch
+   decay. The high-barrier regime degrades significantly (F drops from ~0.94
+   to ~0.66 for default parameters) while small-barrier regimes are largely
+   intact (both T1 and τ_latch are long at 1–2 K).
 
 2. **Dependence on `DeltaU_0, DeltaU_1, Gamma_attempt, A`** (see Fig K):
    - **Barrier gap `DeltaU_0 - DeltaU_1`:** larger gap → lower `T*`
@@ -81,13 +83,14 @@ The following must NOT be stated anywhere in this repository:
    either smaller barriers (to shift the island down in `T`) or different
    `V_sig`/`R` (to weaken the linear channel). This is an honest finding.
 
-4. **When does heating break the scheme?** Two mechanisms: (a) `Gamma_0` grows
-   until state 0 falsely escapes (`Gamma_1/Gamma_0 → 1`, `P_err → 0.5`);
-   (b) `T1(T)` shortens until the spin relaxes before readout completes
-   (`p_survive → 0`, `P_err → 0.5`). Both are now modelled. The `T1(T)`
-   ceiling is visible in Fig G as a red dashed line — the usable `(t, T)`
-   region lies **below** this ceiling. Latch lifetime degradation at high `T`
-   is still NOT modelled and would narrow the window further.
+4. **When does heating break the scheme?** Three mechanisms: (a) `Gamma_0`
+   grows until state 0 falsely escapes (`Gamma_1/Gamma_0 → 1`, `P_err → 0.5`);
+   (b) `T1(T)` shortens until the spin relaxes before readout completes;
+   (c) `τ_latch(T)` shortens until the latched charge decays before readout.
+   All three are now modelled. Fig G shows both ceilings: `T1(T)` (red dashed)
+   and `τ_latch(T)` (orange dotted) — the usable `(t, T)` region lies
+   **below both**. For default parameters, T1 is the tighter constraint at
+   moderate `T`, while τ_latch becomes relevant at higher `T` (~8–10 K).
 
 5. **Central figure for AIST:** **Fig G** (two panels) — the `(t, T)` phase
    diagram, because it shows honestly that the useful window is conditional
@@ -96,8 +99,9 @@ The following must NOT be stated anywhere in this repository:
    parameter design guidance.
 
 6. **Parameters to replace with measured values:** `DeltaU_s`,
-   `Gamma_attempt`, `T1`, latch hold time, RF readout SNR (`V_sig`, `R`), and
-   the temperature dependence of the noise. Fig K provides design guidance:
+   `DeltaU_latch` (reverse barrier), `Gamma_attempt`, `T1(T)` (measured
+   relaxation rates), latch hold time (measured τ_latch), RF readout SNR
+   (`V_sig`, `R`), and the temperature dependence of the noise. Fig K provides design guidance:
    if the measured `DeltaU_s` are known, Fig K panel (b) tells where `T*`
    falls and whether the 1–4 K band is reachable.
 
@@ -105,6 +109,6 @@ The following must NOT be stated anywhere in this repository:
    thermally assisted latched-readout window can exist and beat a JN-limited
    linear channel, *how to shift that window into the 1–4 K focus band*
    (smaller barriers, higher attempt frequency, or stronger drive), and *how
-   T1(T) spin relaxation bounds the window from above*. It does **not** show
+   T1(T) and τ_latch(T) bound the window from above*. It does **not** show
    any thermal benefit to qubits, gates, or coherence, and it is not a device
    prediction.
