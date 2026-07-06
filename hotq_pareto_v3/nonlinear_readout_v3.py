@@ -356,41 +356,71 @@ def fig_H(p: Params):
 
 # --------------------------------------------------------------------------
 # Fig I : Linear (Johnson-Nyquist) vs nonlinear (latched) readout
+#         Two panels: (left) 1-D comparison at fixed t, (right) 2-D advantage
+#         map over (T, t) showing exactly where nonlinear beats linear.
 # --------------------------------------------------------------------------
 def fig_I(p: Params):
-    T = np.linspace(0.1, 10.0, 400)
-    t = p.t_readout
+    T_1d = np.linspace(0.1, 10.0, 400)
+    t_fixed = p.t_readout
 
-    # nonlinear latched readout error
-    G0 = kramers_rate(p.DeltaU0, p.eta0, p.A, T, p.Gamma_attempt)
-    G1 = kramers_rate(p.DeltaU1, p.eta1, p.A, T, p.Gamma_attempt)
-    Perr_nl = readout_error(G0, G1, t)
+    # --- 1-D slice (left panel) ---
+    G0_1d = kramers_rate(p.DeltaU0, p.eta0, p.A, T_1d, p.Gamma_attempt)
+    G1_1d = kramers_rate(p.DeltaU1, p.eta1, p.A, T_1d, p.Gamma_attempt)
+    Perr_nl_1d = readout_error(G0_1d, G1_1d, t_fixed)
+    Perr_lin_1d = perr_linear(T_1d, t_fixed, p)
 
-    # linear RF-reflectometry readout error with EXPLICIT Johnson-Nyquist noise
-    Perr_lin = perr_linear(T, t, p)
-    snr_lin = snr_linear_jn(T, t, p)
+    # --- 2-D advantage map (right panel) ---
+    T_2d = np.linspace(0.1, 10.0, 200)
+    t_2d = np.logspace(-9, -2, 200)
+    TT, tt = np.meshgrid(T_2d, t_2d)
+    G0_2d = kramers_rate(p.DeltaU0, p.eta0, p.A, TT, p.Gamma_attempt)
+    G1_2d = kramers_rate(p.DeltaU1, p.eta1, p.A, TT, p.Gamma_attempt)
+    Perr_nl_2d = readout_error(G0_2d, G1_2d, tt)
+    Perr_lin_2d = perr_linear(TT, tt, p)
+    # advantage ratio: < 1 means nonlinear wins, > 1 means linear wins
+    # use log10 for symmetric color scale
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.log10(np.clip(Perr_nl_2d, 1e-30, 1) /
+                         np.clip(Perr_lin_2d, 1e-30, 1))
+    ratio = np.clip(ratio, -5, 5)
 
-    fig, ax = plt.subplots(figsize=(7.5, 5.5))
-    ax.semilogy(T, np.clip(Perr_lin, 1e-16, 1),
-                color="tab:purple", label="linear RF (Johnson-Nyquist limited)")
-    ax.semilogy(T, np.clip(Perr_nl, 1e-16, 1),
-                color="tab:red", label="nonlinear latched readout")
-    ax.set_xlabel("Temperature T [K]")
-    ax.set_ylabel(r"$P_{\mathrm{err}}$")
-    ax.axvspan(1.0, 4.0, color="gray", alpha=0.12, label="focus band 1-4 K")
-    ax.grid(True, which="both", alpha=0.25)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.5))
 
-    # mark crossover region where nonlinear beats linear
-    better = Perr_nl < Perr_lin
+    # left: 1-D comparison
+    ax1.semilogy(T_1d, np.clip(Perr_lin_1d, 1e-16, 1),
+                 color="tab:purple", label="linear RF (JN limited)")
+    ax1.semilogy(T_1d, np.clip(Perr_nl_1d, 1e-16, 1),
+                 color="tab:red", label="nonlinear latched")
+    ax1.set_xlabel("Temperature T [K]")
+    ax1.set_ylabel(r"$P_{\mathrm{err}}$")
+    ax1.axvspan(1.0, 4.0, color="gray", alpha=0.12, label="focus 1-4 K")
+    ax1.grid(True, which="both", alpha=0.25)
+    better = Perr_nl_1d < Perr_lin_1d
     if better.any():
-        ax.fill_between(T, 1e-16, 1, where=better, color="tab:red", alpha=0.06,
-                        label="nonlinear advantageous")
-    ax.legend(fontsize=8, loc="upper center")
-    ax.set_title(f"Fig I: linear (JN) vs nonlinear readout, t={t:.0e} s")
-    fig.tight_layout()
+        ax1.fill_between(T_1d, 1e-16, 1, where=better, color="tab:red", alpha=0.06,
+                         label="nonlinear wins")
+    ax1.legend(fontsize=7, loc="upper center")
+    ax1.set_title(f"1-D comparison, t = {t_fixed:.0e} s", fontsize=9)
+
+    # right: 2-D advantage map
+    cmap = plt.cm.RdBu_r
+    pcm = ax2.pcolormesh(T_2d, t_2d, ratio, shading="auto", cmap=cmap,
+                         vmin=-5, vmax=5)
+    ax2.set_yscale("log")
+    ax2.set_xlabel("Temperature T [K]")
+    ax2.set_ylabel("Readout integration time t [s]")
+    ax2.contour(T_2d, t_2d, ratio, levels=[0], colors="black", linewidths=1.5)
+    ax2.axvspan(1.0, 4.0, color="white", alpha=0.08)
+    cbar = fig.colorbar(pcm, ax=ax2)
+    cbar.set_label(r"$\log_{10}(P_{\mathrm{err,NL}} / P_{\mathrm{err,lin}})$"
+                   "\n(blue = nonlinear wins, red = linear wins)")
+    ax2.set_title("2-D advantage map (NL vs linear JN)", fontsize=9)
+
+    fig.suptitle("Fig I: linear (Johnson-Nyquist) vs nonlinear latched readout", fontsize=11)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(os.path.join(FIG_DIR, "figI_compare_linear_vs_nonlinear_readout.png"), dpi=140)
     plt.close(fig)
-    return T, Perr_lin, Perr_nl, snr_lin
+    return T_1d, Perr_lin_1d, Perr_nl_1d
 
 
 # --------------------------------------------------------------------------

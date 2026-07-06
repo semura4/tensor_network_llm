@@ -47,26 +47,56 @@ The following must NOT be stated anywhere in this repository:
 1. **Does an optimal temperature region exist?** Yes for the default
    parameters (interior optimum near `T* ≈ 7 K` at `t = 1 µs`), but it is
    **conditional**: it vanishes for near-equal barriers or very short `t`
-   (Fig G, Fig H regime (c) gives a boundary-only optimum).
-2. **Dependence on `DeltaU_0, DeltaU_1, Gamma_attempt, A`:** the window widens
-   and moves to lower `T` when the barrier gap `DeltaU_0 - DeltaU_1` is larger,
-   when `Gamma_attempt` is higher, and when `A` (weighted by `eta_s`,
-   `eta_1 > eta_0`) lowers the state-1 barrier more than the state-0 barrier.
-   Near-equal barriers destroy the window.
-3. **When does nonlinear beat linear (JN)?** Only in a bounded temperature band
-   (for defaults, roughly 6–8 K at `t = 1 µs`, `V_sig = 1 µV`, `R = 1 kΩ`),
-   where JN noise has degraded the linear channel while `Gamma_1 t` has become
-   ≳ 1 but `Gamma_0 t` is still small. Outside this band linear wins.
+   (Fig G left panel, Fig H regime (c) gives a boundary-only optimum).
+   With smaller barriers (`DeltaU_0 = 1.5, DeltaU_1 = 0.8 meV`), the
+   optimum shifts to `T* ≈ 0.8 K` inside the 1–4 K focus band (Fig G right
+   panel, Fig H regime (d)).
+
+2. **Dependence on `DeltaU_0, DeltaU_1, Gamma_attempt, A`** (see Fig K):
+   - **Barrier gap `DeltaU_0 - DeltaU_1`:** larger gap → lower `T*`
+     (gap ≈ 5 meV brings `T*` into the 1–4 K band at `DeltaU_0 = 6 meV`).
+   - **Absolute barrier height:** `T*` rises approximately linearly with
+     `DeltaU_0` (at fixed gap). Reaching the 1–4 K focus band requires
+     barriers below ~4 meV (at gap = 2 meV).
+   - **Attempt frequency `Gamma_attempt`:** higher → lower `T*` (100 GHz
+     brings `T*` down to ~4 K with default barriers).
+   - **Drive amplitude `A`:** larger → lower `T*` (A ≈ 3 meV brings `T*`
+     to ~2.7 K); works because `eta_1 > eta_0` preferentially lowers the
+     state-1 barrier.
+   - Near-equal barriers destroy the window regardless of other parameters.
+
+3. **When does nonlinear beat linear (JN)?** The 2-D advantage map (Fig I
+   right panel) shows the nonlinear channel wins only in a **bounded island**
+   in `(T, t)` space. For default parameters, the island spans roughly
+   `T ∈ [5, 10] K` and `t ∈ [10^-7, 10^-5] s`. The boundary (black contour
+   at equal error) sweeps from `T ≈ 5 K` at `t = 10^-5 s` to `T ≈ 10 K` at
+   `t = 10^-7 s`. **In the 1–4 K focus band with default high barriers, the
+   linear channel always wins** — the nonlinear channel's advantage requires
+   either smaller barriers (to shift the island down in `T`) or different
+   `V_sig`/`R` (to weaken the linear channel). This is an honest finding.
+
 4. **When does heating break the scheme?** When `Gamma_0` grows enough that
-   state 0 falsely escapes (`Gamma_1/Gamma_0 -> 1`, `P_err -> 0.5`), and — not
-   modelled here but decisive in reality — when higher `T` shortens `T1` and
-   the latch lifetime and raises JN noise.
-5. **Central figure for AIST:** **Fig G** — the `(t, T)` phase diagram, because
-   it shows honestly that the useful window is conditional.
+   state 0 falsely escapes (`Gamma_1/Gamma_0 → 1`, `P_err → 0.5`). This is
+   visible on Fig I as the advantage island closing at high `T`. In reality
+   (not modelled here), higher `T` also shortens `T1` and the latch
+   lifetime and raises JN noise — all of which narrow or eliminate the
+   advantage window further.
+
+5. **Central figure for AIST:** **Fig G** (two panels) — the `(t, T)` phase
+   diagram, because it shows honestly that the useful window is conditional
+   and its position depends on barrier size. Supplemented by Fig I (2-D
+   advantage map) for the linear-vs-nonlinear comparison and Fig K for
+   parameter design guidance.
+
 6. **Parameters to replace with measured values:** `DeltaU_s`,
    `Gamma_attempt`, `T1`, latch hold time, RF readout SNR (`V_sig`, `R`), and
-   the temperature dependence of the noise.
+   the temperature dependence of the noise. Fig K provides design guidance:
+   if the measured `DeltaU_s` are known, Fig K panel (b) tells where `T*`
+   falls and whether the 1–4 K band is reachable.
+
 7. **What the model shows / does not show:** it shows *whether and where* a
    thermally assisted latched-readout window can exist and beat a JN-limited
-   linear channel; it does **not** show any thermal benefit to qubits, gates,
-   or coherence, and it is not a device prediction.
+   linear channel, and *how to shift that window into the 1–4 K focus band*
+   (smaller barriers, higher attempt frequency, or stronger drive). It does
+   **not** show any thermal benefit to qubits, gates, or coherence, and it
+   is not a device prediction.
