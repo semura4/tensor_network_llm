@@ -5,9 +5,12 @@ predict device performance.
 
 ## What is left out
 
-- **No T1 / latch-lifetime coupling.** Real readout is bounded by spin
-  relaxation `T1` and by the metastable charge (latch) hold time. Neither is
-  modelled here; both must be added and measured before any quantitative claim.
+- **T1 is modelled but simplified.** Spin relaxation `T1(T)` is now included
+  as a two-mechanism power law (`1/T1 = rate_phonon*T + rate_multi*T^5`), but
+  the rates are illustrative, and the model ignores valley splitting, magnetic
+  field, spin-orbit coupling, and phonon spectral density. **Latch lifetime**
+  (metastable charge hold time) is still NOT modelled; it must be added and
+  measured before any quantitative claim.
 - **Single attempt frequency, no prefactor physics.** `Gamma_attempt` is a
   constant. Real Kramers prefactors depend on curvature, friction/dissipation,
   and temperature.
@@ -27,10 +30,11 @@ predict device performance.
 ## Regimes where the model breaks down / self-defeats
 
 - **Too hot:** `Gamma_0` grows until state 0 falsely escapes; discrimination
-  `Gamma_1/Gamma_0` collapses and `P_err -> 0.5`. Also, higher device
-  temperature raises JN noise in the linear channel and would in reality
-  shorten `T1` and the latch lifetime (not modelled) — so the apparent
-  high-`T` nonlinear advantage is optimistic.
+  `Gamma_1/Gamma_0` collapses and `P_err -> 0.5`. Higher device temperature
+  also shortens `T1` (now modelled — the `T1(T)` ceiling is visible in Fig G)
+  and raises JN noise in the linear channel. Latch lifetime degradation at
+  high `T` is still not modelled — so the apparent high-`T` nonlinear
+  advantage may still be somewhat optimistic.
 - **Too cold / too short `t`:** `Gamma_1 t << 1`, state 1 is missed and the
   optimum window in Fig H can disappear entirely (boundary optimum only).
 - **Barriers too close (`DeltaU_0 - DeltaU_1` small):** discrimination is weak
@@ -39,8 +43,12 @@ predict device performance.
 ## Honest reading of the figures
 
 - Fig G (central) shows the window is **conditional**: present for some
-  `(t, T)` and absent for others.
-- Fig H includes regimes with **no interior optimum**; do not read it as
-  "there is always an optimal temperature."
+  `(t, T)` and absent for others. The red dashed `T1(T)` ceiling shows where
+  spin relaxation cuts off usable readout time — the region above the ceiling
+  is T1-limited regardless of Kramers rates.
+- Fig H (2-panel) shows fidelity *without* T1 (left) vs *with* T1 (right).
+  High-barrier regimes degrade significantly (F ~ 0.94 → 0.66); small-barrier
+  regimes are barely affected. Includes regimes with **no interior optimum**;
+  do not read it as "there is always an optimal temperature."
 - Fig I shows the nonlinear channel is advantageous only in a **bounded**
   temperature band, and only for the chosen illustrative `V_sig`, `R`, `t`.

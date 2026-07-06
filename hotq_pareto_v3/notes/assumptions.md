@@ -38,6 +38,19 @@ All values are **illustrative**, not measured.
   `P_err_linear = 0.5 erfc(SNR/(2 sqrt2))`.
 - `V_sig`, `R` are illustrative and chosen to keep the comparison non-trivial.
 
+## Spin relaxation T1(T) (Fig G, Fig H)
+
+- Two-mechanism phenomenological model:
+  `1/T1(T) = rate_phonon * T + rate_multi * T^5`.
+- `rate_phonon = 906 Hz/K` (direct one-phonon), `rate_multi = 94.1 Hz/K^5`
+  (Raman/multi-phonon). All values **illustrative**.
+- Spin survives readout with probability `p_survive = exp(-t / T1(T))`.
+  If it relaxes, charge state randomizes → coin flip (P_err = 0.5).
+- T1-constrained error: `P_err_T1 = p_survive * P_err_kramers + (1-p_survive)*0.5`.
+- The T1 model is a simple power-law fit. Real T1(T) depends on valley
+  splitting, magnetic field, spin-orbit coupling, and phonon spectral density
+  — none of which are modelled.
+
 ## Colored noise (Fig J)
 
 - OU barrier fluctuation `eta` with stationary variance `Var[eta] = D`,

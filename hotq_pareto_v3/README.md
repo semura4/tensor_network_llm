@@ -105,6 +105,34 @@ nonlinear channel is fair rather than rigged.
 error). A larger `V_sig` would make the linear channel trivially perfect and
 the comparison uninformative.
 
+### Spin relaxation T1(T) — readout time ceiling
+
+The spin can relax during readout. If it does, the charge state randomizes
+and the measurement outcome is a coin flip. This bounds usable readout time
+from above: `t` cannot exceed `T1(T)` without losing the signal.
+
+Two-mechanism phenomenological model (all values **illustrative**):
+
+```
+1 / T1(T) = rate_phonon * T  +  rate_multi * T^5
+```
+
+- `rate_phonon = 906 Hz/K` — direct one-phonon process
+- `rate_multi = 94.1 Hz/K^5` — Raman / multi-phonon process
+- Illustrative values: `T1(1 K) ≈ 1 ms`, `T1(4 K) ≈ 10 µs`
+
+T1-constrained readout error:
+
+```
+p_survive = exp(-t / T1(T))
+P_err_T1  = p_survive * P_err_kramers  +  (1 - p_survive) * 0.5
+```
+
+The readout window is now bounded from **below** (Kramers rate too slow at
+low `T`) and from **above** (T1 too short at high `T`). Fig G shows the
+`T1(T)` ceiling as a red dashed line; Fig H compares fidelity with and
+without the T1 constraint.
+
 ### Colored (Ornstein–Uhlenbeck) noise — simplified
 
 The OU process (with its stationary variance pinned explicitly):
@@ -139,6 +167,8 @@ shaping* without exaggeration.
 | `t_readout` | 1 µs | integration time |
 | `V_sig` | 1 µV | linear state-dependent RF signal (illustrative) |
 | `R` | 1 kΩ | effective source resistance (illustrative) |
+| `rate_phonon` | 906 Hz/K | one-phonon T1 relaxation rate (illustrative) |
+| `rate_multi` | 94.1 Hz/K⁵ | multi-phonon T1 relaxation rate (illustrative) |
 
 Reference scales: `kB T ≈ 0.086 meV` at 1 K, `≈ 0.345 meV` at 4 K.
 Sweep ranges: `T` 0.1–10 K (focus 1–4 K), `DeltaU_0` 1–20 meV,
@@ -150,8 +180,8 @@ Sweep ranges: `T` 0.1–10 K (focus 1–4 K), `DeltaU_0` 1–20 meV,
 | file | content |
 |---|---|
 | `figF_kramers_rates_vs_temperature.png` | Γ₀, Γ₁ and Γ₁/Γ₀ vs T |
-| `figG_error_heatmap_time_temperature.png` | **CENTRAL**: P_err phase diagram over (t, T), two panels: high barriers (window at 5–9 K) and small barriers (window at 0.5–2 K in the focus band) |
-| `figH_stochastic_resonance_optimum.png` | F_readout vs T — optimum present in some regimes, absent in others |
+| `figG_error_heatmap_time_temperature.png` | **CENTRAL**: P_err phase diagram over (t, T) with T1(T) ceiling, two panels: high barriers (window at 5–9 K) and small barriers (window at 0.5–2 K in the focus band) |
+| `figH_stochastic_resonance_optimum.png` | F_readout vs T — 2-panel: without T1 (left) vs with T1 (right); includes regimes with no interior optimum |
 | `figI_compare_linear_vs_nonlinear_readout.png` | linear (JN) vs nonlinear latched readout |
 | `figJ_colored_noise_sensitivity.png` | OU colored-noise sensitivity (simplified) |
 | `figK_parameter_dependence.png` | T* vs barrier gap, absolute barrier height, Γ_attempt, and drive A |
@@ -161,9 +191,13 @@ honestly that an optimal window exists for *some* conditions and vanishes for
 others. The left panel (default high barriers) has its window at 5–9 K; the
 right panel (small barriers `DeltaU_0=1.5, DeltaU_1=0.8 meV`) demonstrates that
 the window can fall **inside the 1–4 K focus band** when barriers are small
-enough. This is more faithful than Fig H, which can over-suggest that "an
-optimal temperature always exists." Fig H therefore deliberately includes
-regimes where **no interior optimum exists**.
+enough. Both panels now include the `T1(T)` ceiling (red dashed line) showing
+where spin relaxation cuts off the usable readout time, and the error heatmap
+uses the T1-constrained `P_err_T1`. Fig H is a 2-panel comparison: left panel
+shows fidelity *without* T1, right panel shows fidelity *with* T1 — the T1
+constraint degrades high-barrier regimes significantly (F drops from ~0.94 to
+~0.66) while small-barrier regimes are barely affected. Fig H deliberately
+includes regimes where **no interior optimum exists**.
 
 **Fig K shows parameter dependence** (final report question 2). Key findings:
 T* decreases with larger barrier gap, higher Γ_attempt, and larger drive A.

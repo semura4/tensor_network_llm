@@ -19,6 +19,9 @@ amplifier**, not the qubit, not a quantum gate, and not quantum coherence.
    beat a Johnson–Nyquist-limited linear RF channel (Fig I).
 4. A first-order, honest sensitivity to **noise spectral shaping** via a
    simplified OU correction (Fig J).
+5. How **spin relaxation T1(T)** constrains the usable readout window from
+   above — the readout time `t` cannot exceed `T1(T)` without losing the spin
+   signal (Fig G ceiling line, Fig H with/without T1 comparison).
 
 ## What this model CANNOT show
 
@@ -50,7 +53,10 @@ The following must NOT be stated anywhere in this repository:
    (Fig G left panel, Fig H regime (c) gives a boundary-only optimum).
    With smaller barriers (`DeltaU_0 = 1.5, DeltaU_1 = 0.8 meV`), the
    optimum shifts to `T* ≈ 0.8 K` inside the 1–4 K focus band (Fig G right
-   panel, Fig H regime (d)).
+   panel, Fig H regime (d)). **With T1(T) included**, the window is bounded
+   from above: spin relaxation degrades the high-barrier regime significantly
+   (F drops from ~0.94 to ~0.66 for default parameters) while leaving
+   small-barrier regimes largely intact (T1 is long enough at 1–2 K).
 
 2. **Dependence on `DeltaU_0, DeltaU_1, Gamma_attempt, A`** (see Fig K):
    - **Barrier gap `DeltaU_0 - DeltaU_1`:** larger gap → lower `T*`
@@ -75,12 +81,13 @@ The following must NOT be stated anywhere in this repository:
    either smaller barriers (to shift the island down in `T`) or different
    `V_sig`/`R` (to weaken the linear channel). This is an honest finding.
 
-4. **When does heating break the scheme?** When `Gamma_0` grows enough that
-   state 0 falsely escapes (`Gamma_1/Gamma_0 → 1`, `P_err → 0.5`). This is
-   visible on Fig I as the advantage island closing at high `T`. In reality
-   (not modelled here), higher `T` also shortens `T1` and the latch
-   lifetime and raises JN noise — all of which narrow or eliminate the
-   advantage window further.
+4. **When does heating break the scheme?** Two mechanisms: (a) `Gamma_0` grows
+   until state 0 falsely escapes (`Gamma_1/Gamma_0 → 1`, `P_err → 0.5`);
+   (b) `T1(T)` shortens until the spin relaxes before readout completes
+   (`p_survive → 0`, `P_err → 0.5`). Both are now modelled. The `T1(T)`
+   ceiling is visible in Fig G as a red dashed line — the usable `(t, T)`
+   region lies **below** this ceiling. Latch lifetime degradation at high `T`
+   is still NOT modelled and would narrow the window further.
 
 5. **Central figure for AIST:** **Fig G** (two panels) — the `(t, T)` phase
    diagram, because it shows honestly that the useful window is conditional
@@ -96,7 +103,8 @@ The following must NOT be stated anywhere in this repository:
 
 7. **What the model shows / does not show:** it shows *whether and where* a
    thermally assisted latched-readout window can exist and beat a JN-limited
-   linear channel, and *how to shift that window into the 1–4 K focus band*
-   (smaller barriers, higher attempt frequency, or stronger drive). It does
-   **not** show any thermal benefit to qubits, gates, or coherence, and it
-   is not a device prediction.
+   linear channel, *how to shift that window into the 1–4 K focus band*
+   (smaller barriers, higher attempt frequency, or stronger drive), and *how
+   T1(T) spin relaxation bounds the window from above*. It does **not** show
+   any thermal benefit to qubits, gates, or coherence, and it is not a device
+   prediction.

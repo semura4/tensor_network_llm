@@ -103,6 +103,41 @@ class Params:
     R = 1.0e3           # effective source resistance [Ohm]
     KB_SI = 1.380649e-23  # Boltzmann constant [J/K] for the JN noise term
 
+    # --- Spin relaxation T1(T) parameters (ILLUSTRATIVE) ---
+    # Two-mechanism phenomenological model:
+    #   1/T1(T) = rate_phonon * T  +  rate_multi * T^5
+    # (direct one-phonon process  +  Raman/multi-phonon process)
+    # Tuned to give illustrative values roughly matching Si spin qubits:
+    #   T1(0.1K) ~ 10 ms,  T1(1K) ~ 1 ms,  T1(4K) ~ 10 us
+    rate_phonon = 906.0    # [Hz / K]   (one-phonon / direct process)
+    rate_multi = 94.1      # [Hz / K^5] (Raman / multi-phonon process)
+
+
+# --------------------------------------------------------------------------
+# Spin relaxation T1(T) — constrains the maximum usable readout time
+# --------------------------------------------------------------------------
+def spin_T1(T, p: Params):
+    """T1(T) [s] = 1 / (rate_phonon * T + rate_multi * T^5).
+
+    Two-mechanism phenomenological model; all values ILLUSTRATIVE.
+    """
+    T = np.asarray(T, dtype=float)
+    rate = p.rate_phonon * T + p.rate_multi * T ** 5
+    return 1.0 / rate
+
+
+def readout_error_with_T1(Gamma0, Gamma1, t, T1):
+    """Readout error including spin relaxation during readout.
+
+    The spin survives with probability p_s = exp(-t / T1). If it relaxes,
+    the charge state randomizes and the outcome is a coin flip (P_err = 0.5).
+
+    P_err = p_s * P_err_kramers + (1 - p_s) * 0.5
+    """
+    p_survive = np.exp(-t / T1)
+    perr_kramers = readout_error(Gamma0, Gamma1, t)
+    return p_survive * perr_kramers + (1.0 - p_survive) * 0.5
+
 
 # --------------------------------------------------------------------------
 # Core rate / error model
@@ -244,11 +279,15 @@ def fig_F(p: Params):
 #         Two panels: (left) default high barriers, (right) small barriers
 #         that place the useful window inside the 1-4 K focus band.
 # --------------------------------------------------------------------------
-def _fig_G_panel(ax, T, t, DeltaU0, DeltaU1, eta0, eta1, A, Gamma_attempt, title):
+def _fig_G_panel(ax, T, t, DeltaU0, DeltaU1, eta0, eta1, A, Gamma_attempt, p, title,
+                 show_T1=True):
+    """Single panel of Fig G: P_err heatmap WITH T1 constraint."""
     TT, tt = np.meshgrid(T, t)
     G0 = kramers_rate(DeltaU0, eta0, A, TT, Gamma_attempt)
     G1 = kramers_rate(DeltaU1, eta1, A, TT, Gamma_attempt)
-    Perr = readout_error(G0, G1, tt)
+
+    T1_arr = spin_T1(TT, p)
+    Perr = readout_error_with_T1(G0, G1, tt, T1_arr)
 
     pcm = ax.pcolormesh(T, t, Perr, shading="auto", cmap="viridis",
                         vmin=0.0, vmax=0.5)
@@ -258,6 +297,14 @@ def _fig_G_panel(ax, T, t, DeltaU0, DeltaU1, eta0, eta1, A, Gamma_attempt, title
                     linewidths=0.8)
     ax.clabel(cs, inline=True, fontsize=7, fmt="%.2f")
     ax.axvspan(1.0, 4.0, color="white", alpha=0.08)
+
+    if show_T1:
+        T1_line = spin_T1(T, p)
+        T1_visible = np.clip(T1_line, t.min(), t.max())
+        ax.plot(T, T1_visible, color="red", ls="--", lw=2.0,
+                label=r"$T_1(T)$ ceiling")
+        ax.legend(fontsize=7, loc="lower left")
+
     ax.set_title(title, fontsize=9)
     return pcm, Perr
 
@@ -270,23 +317,24 @@ def fig_G(p: Params):
 
     # left: default (high barriers, window at ~5-9 K)
     pcm1, Perr_default = _fig_G_panel(
-        ax1, T, t, p.DeltaU0, p.DeltaU1, p.eta0, p.eta1, p.A, p.Gamma_attempt,
+        ax1, T, t, p.DeltaU0, p.DeltaU1, p.eta0, p.eta1, p.A, p.Gamma_attempt, p,
         r"$\Delta U_0$=6, $\Delta U_1$=4 meV (window at 5-9 K)")
     ax1.set_ylabel("Readout integration time t [s]")
 
     # right: small barriers, window in the 1-4 K focus band
     pcm2, Perr_small = _fig_G_panel(
-        ax2, T, t, 1.5, 0.8, p.eta0, p.eta1, p.A, p.Gamma_attempt,
+        ax2, T, t, 1.5, 0.8, p.eta0, p.eta1, p.A, p.Gamma_attempt, p,
         r"$\Delta U_0$=1.5, $\Delta U_1$=0.8 meV (window at 0.5-2 K)")
 
     cbar = fig.colorbar(pcm2, ax=[ax1, ax2], shrink=0.85)
-    cbar.set_label(r"$P_{\mathrm{err}}(t,T,A)$")
-    fig.suptitle("Fig G: readout-error phase diagram [CENTRAL figure]", fontsize=11)
+    cbar.set_label(r"$P_{\mathrm{err}}(t,T,A)$ [with $T_1$ constraint]")
+    fig.suptitle("Fig G: readout-error phase diagram with $T_1(T)$ ceiling "
+                 "[CENTRAL figure]", fontsize=11)
     fig.subplots_adjust(left=0.07, right=0.88, top=0.90, bottom=0.12, wspace=0.08)
     fig.savefig(os.path.join(FIG_DIR, "figG_error_heatmap_time_temperature.png"), dpi=140)
     plt.close(fig)
 
-    # CSV: down-sample to keep the file readable (default params only)
+    # CSV: down-sample to keep the file readable
     rows = []
     for it in range(0, len(t), 4):
         for iT in range(0, len(T), 4):
@@ -294,7 +342,8 @@ def fig_G(p: Params):
                          f"{Perr_default[it, iT]:.6e}",
                          f"{Perr_small[it, iT]:.6e}"])
     write_csv(os.path.join(DATA_DIR, "error_heatmap.csv"),
-              ["t_readout_s", "T_K", "P_err_default", "P_err_small_barrier"], rows)
+              ["t_readout_s", "T_K", "P_err_default_with_T1",
+               "P_err_small_barrier_with_T1"], rows)
     return T, t, Perr_default
 
 
@@ -305,46 +354,61 @@ def fig_G(p: Params):
 def fig_H(p: Params):
     T = np.linspace(0.1, 10.0, 500)
 
-    # Four illustrative regimes:
-    #  (a) default -> interior optimum at ~7 K
-    #  (b) barriers nearly equal -> weak / no useful optimum
-    #  (c) very close barriers + short time -> optimum washed out
-    #  (d) smaller barriers -> optimum INSIDE the 1-4 K focus band
+    # Two key regimes, each shown WITHOUT and WITH T1 constraint:
+    #  (a) default high barriers
+    #  (d) small barriers (1-4 K focus)
+    # plus (c) washed-out to show that no optimum isn't always fixable
     regimes = [
-        dict(label="(a) DeltaU0=6, DeltaU1=4 (optimum ~7 K)",
+        dict(label="(a) DeltaU0=6, DeltaU1=4",
              DeltaU0=6.0, DeltaU1=4.0, t=1e-6, color="tab:blue"),
-        dict(label="(b) DeltaU0=6, DeltaU1=5.7 (weak/absent)",
-             DeltaU0=6.0, DeltaU1=5.7, t=1e-6, color="tab:orange"),
-        dict(label="(c) DeltaU0=6, DeltaU1=4, t=1 ns (washed out)",
-             DeltaU0=6.0, DeltaU1=4.0, t=1e-9, color="tab:green"),
-        dict(label="(d) DeltaU0=1.5, DeltaU1=0.8 (optimum ~2 K)",
+        dict(label="(d) DeltaU0=1.5, DeltaU1=0.8",
              DeltaU0=1.5, DeltaU1=0.8, t=1e-6, color="tab:purple"),
     ]
 
-    fig, ax = plt.subplots(figsize=(7.5, 5.5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.5), sharey=True)
     opt_rows = []
+
     for rg in regimes:
         G0 = kramers_rate(rg["DeltaU0"], p.eta0, p.A, T, p.Gamma_attempt)
         G1 = kramers_rate(rg["DeltaU1"], p.eta1, p.A, T, p.Gamma_attempt)
-        F = readout_fidelity(G0, G1, rg["t"])
-        ax.plot(T, F, color=rg["color"], label=rg["label"])
 
-        # locate interior optimum, but only report it if it is genuinely interior
-        i = int(np.argmax(F))
+        # without T1
+        F_no_T1 = readout_fidelity(G0, G1, rg["t"])
+        ax1.plot(T, F_no_T1, color=rg["color"], label=rg["label"])
+
+        i = int(np.argmax(F_no_T1))
         interior = 0 < i < len(T) - 1
-        ax.plot(T[i], F[i], "o", color=rg["color"], ms=6,
-                mfc="white" if not interior else rg["color"])
-        opt_rows.append([rg["label"], f"{rg['DeltaU0']:.3f}", f"{rg['DeltaU1']:.3f}",
-                         f"{rg['t']:.3e}", f"{T[i]:.4f}", f"{F[i]:.6f}",
-                         "interior" if interior else "boundary(no interior optimum)"])
+        ax1.plot(T[i], F_no_T1[i], "o", color=rg["color"], ms=6,
+                 mfc="white" if not interior else rg["color"])
+        opt_rows.append([rg["label"] + " (no T1)", f"{rg['DeltaU0']:.3f}",
+                         f"{rg['DeltaU1']:.3f}", f"{rg['t']:.3e}",
+                         f"{T[i]:.4f}", f"{F_no_T1[i]:.6f}",
+                         "interior" if interior else "boundary"])
 
-    ax.set_xlabel("Temperature T [K]")
-    ax.set_ylabel(r"$F_{\mathrm{readout}} = 1 - P_{\mathrm{err}}$")
-    ax.axvspan(1.0, 4.0, color="gray", alpha=0.12)
-    ax.grid(True, alpha=0.25)
-    ax.legend(fontsize=8, loc="lower center")
-    ax.set_title("Fig H: temperature optimum EXISTS only in some regimes")
-    fig.tight_layout()
+        # with T1
+        T1_arr = spin_T1(T, p)
+        F_with_T1 = 1.0 - readout_error_with_T1(G0, G1, rg["t"], T1_arr)
+        ax2.plot(T, F_with_T1, color=rg["color"], label=rg["label"] + r" + $T_1$")
+
+        j = int(np.argmax(F_with_T1))
+        interior_t1 = 0 < j < len(T) - 1
+        ax2.plot(T[j], F_with_T1[j], "o", color=rg["color"], ms=6,
+                 mfc="white" if not interior_t1 else rg["color"])
+        opt_rows.append([rg["label"] + " (with T1)", f"{rg['DeltaU0']:.3f}",
+                         f"{rg['DeltaU1']:.3f}", f"{rg['t']:.3e}",
+                         f"{T[j]:.4f}", f"{F_with_T1[j]:.6f}",
+                         "interior" if interior_t1 else "boundary"])
+
+    for ax, title in [(ax1, "without $T_1$ constraint"),
+                      (ax2, "with $T_1(T)$ spin relaxation")]:
+        ax.set_xlabel("Temperature T [K]")
+        ax.axvspan(1.0, 4.0, color="gray", alpha=0.12)
+        ax.grid(True, alpha=0.25)
+        ax.legend(fontsize=8, loc="lower center")
+        ax.set_title(title, fontsize=10)
+    ax1.set_ylabel(r"$F_{\mathrm{readout}} = 1 - P_{\mathrm{err}}$")
+    fig.suptitle("Fig H: effect of $T_1(T)$ on the readout fidelity window", fontsize=11)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(os.path.join(FIG_DIR, "figH_stochastic_resonance_optimum.png"), dpi=140)
     plt.close(fig)
 
@@ -591,11 +655,18 @@ def summarize(p: Params):
     T = np.linspace(0.1, 10.0, 2000)
     G0 = kramers_rate(p.DeltaU0, p.eta0, p.A, T, p.Gamma_attempt)
     G1 = kramers_rate(p.DeltaU1, p.eta1, p.A, T, p.Gamma_attempt)
-    F = readout_fidelity(G0, G1, p.t_readout)
-    i = int(np.argmax(F))
-    interior = 0 < i < len(T) - 1
 
-    Perr_nl = readout_error(G0, G1, p.t_readout)
+    F_no_T1 = readout_fidelity(G0, G1, p.t_readout)
+    i_no = int(np.argmax(F_no_T1))
+    interior_no = 0 < i_no < len(T) - 1
+
+    T1_vals = spin_T1(T, p)
+    Perr_T1 = readout_error_with_T1(G0, G1, p.t_readout, T1_vals)
+    F_T1 = 1.0 - Perr_T1
+    i_T1 = int(np.argmax(F_T1))
+    interior_T1 = 0 < i_T1 < len(T) - 1
+
+    Perr_nl = Perr_T1
     Perr_lin = perr_linear(T, p.t_readout, p)
     adv = Perr_nl < Perr_lin
 
@@ -605,17 +676,33 @@ def summarize(p: Params):
     print(f"default: DeltaU0={p.DeltaU0} meV, DeltaU1={p.DeltaU1} meV, "
           f"A={p.A} meV, eta0={p.eta0}, eta1={p.eta1}, "
           f"Gamma_attempt={p.Gamma_attempt:.1e} Hz, t={p.t_readout:.1e} s")
-    if interior:
-        print(f"[1] interior temperature optimum FOUND at T*={T[i]:.2f} K, "
-              f"F_readout={F[i]:.4f}")
+    print(f"T1 model: 1/T1 = {p.rate_phonon:.1f}*T + {p.rate_multi:.1f}*T^5  "
+          f"[T1(1K)={spin_T1(1.0, p):.1e} s, T1(4K)={spin_T1(4.0, p):.1e} s]")
+    print()
+    if interior_no:
+        print(f"[1a] WITHOUT T1: interior optimum at T*={T[i_no]:.2f} K, "
+              f"F_readout={F_no_T1[i_no]:.4f}")
     else:
-        print("[1] NO interior temperature optimum for the default parameters "
+        print("[1a] WITHOUT T1: no interior temperature optimum "
               "(optimum sits at a T boundary).")
-    if adv.any():
-        print(f"[3] nonlinear beats linear (JN) over "
-              f"T in [{T[adv].min():.2f}, {T[adv].max():.2f}] K at t={p.t_readout:.0e}s")
+    if interior_T1:
+        print(f"[1b] WITH T1:    interior optimum at T*={T[i_T1]:.2f} K, "
+              f"F_readout={F_T1[i_T1]:.4f}")
     else:
-        print("[3] nonlinear never beats linear (JN) at these defaults.")
+        print("[1b] WITH T1:    no interior temperature optimum "
+              "(optimum sits at a T boundary).")
+    if interior_no and interior_T1:
+        dF = F_no_T1[i_no] - F_T1[i_T1]
+        print(f"     T1 penalty: F drops by {dF:.4f} "
+              f"(T* shifts {T[i_no]:.2f} -> {T[i_T1]:.2f} K)")
+    print()
+    if adv.any():
+        print(f"[3] nonlinear (with T1) beats linear (JN) over "
+              f"T in [{T[adv].min():.2f}, {T[adv].max():.2f}] K "
+              f"at t={p.t_readout:.0e} s")
+    else:
+        print("[3] nonlinear (with T1) never beats linear (JN) at these defaults.")
+    print()
     print("Figures written to figures/, data written to data/.")
     print("=" * 70)
 
