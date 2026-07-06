@@ -150,16 +150,26 @@ Sweep ranges: `T` 0.1–10 K (focus 1–4 K), `DeltaU_0` 1–20 meV,
 | file | content |
 |---|---|
 | `figF_kramers_rates_vs_temperature.png` | Γ₀, Γ₁ and Γ₁/Γ₀ vs T |
-| `figG_error_heatmap_time_temperature.png` | **CENTRAL**: P_err phase diagram over (t, T) |
+| `figG_error_heatmap_time_temperature.png` | **CENTRAL**: P_err phase diagram over (t, T), two panels: high barriers (window at 5–9 K) and small barriers (window at 0.5–2 K in the focus band) |
 | `figH_stochastic_resonance_optimum.png` | F_readout vs T — optimum present in some regimes, absent in others |
 | `figI_compare_linear_vs_nonlinear_readout.png` | linear (JN) vs nonlinear latched readout |
 | `figJ_colored_noise_sensitivity.png` | OU colored-noise sensitivity (simplified) |
+| `figK_parameter_dependence.png` | T* vs barrier gap, absolute barrier height, Γ_attempt, and drive A |
 
-**Fig G is the central figure.** The 2-D `(t, T)` phase diagram shows honestly
-that an optimal window exists for *some* conditions and vanishes for others —
-which is more faithful than Fig H, which can over-suggest that "an optimal
-temperature always exists." Fig H therefore deliberately includes regimes where
-**no interior optimum exists**.
+**Fig G is the central figure.** The 2-panel `(t, T)` phase diagram shows
+honestly that an optimal window exists for *some* conditions and vanishes for
+others. The left panel (default high barriers) has its window at 5–9 K; the
+right panel (small barriers `DeltaU_0=1.5, DeltaU_1=0.8 meV`) demonstrates that
+the window can fall **inside the 1–4 K focus band** when barriers are small
+enough. This is more faithful than Fig H, which can over-suggest that "an
+optimal temperature always exists." Fig H therefore deliberately includes
+regimes where **no interior optimum exists**.
+
+**Fig K shows parameter dependence** (final report question 2). Key findings:
+T* decreases with larger barrier gap, higher Γ_attempt, and larger drive A.
+T* increases approximately linearly with the absolute barrier height. The
+gray band marks the 1–4 K focus region — reaching it requires either small
+barriers, large barrier gap, high attempt frequency, or strong drive.
 
 ## Run
 

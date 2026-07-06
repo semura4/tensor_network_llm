@@ -241,43 +241,61 @@ def fig_F(p: Params):
 
 # --------------------------------------------------------------------------
 # Fig G : Error heatmap over (t_readout, T)  --  the CENTRAL figure
+#         Two panels: (left) default high barriers, (right) small barriers
+#         that place the useful window inside the 1-4 K focus band.
 # --------------------------------------------------------------------------
-def fig_G(p: Params):
-    T = np.linspace(0.1, 10.0, 220)
-    t = np.logspace(-9, -2, 220)  # 1 ns .. 10 ms
+def _fig_G_panel(ax, T, t, DeltaU0, DeltaU1, eta0, eta1, A, Gamma_attempt, title):
     TT, tt = np.meshgrid(T, t)
-
-    G0 = kramers_rate(p.DeltaU0, p.eta0, p.A, TT, p.Gamma_attempt)
-    G1 = kramers_rate(p.DeltaU1, p.eta1, p.A, TT, p.Gamma_attempt)
+    G0 = kramers_rate(DeltaU0, eta0, A, TT, Gamma_attempt)
+    G1 = kramers_rate(DeltaU1, eta1, A, TT, Gamma_attempt)
     Perr = readout_error(G0, G1, tt)
 
-    fig, ax = plt.subplots(figsize=(7.5, 5.5))
     pcm = ax.pcolormesh(T, t, Perr, shading="auto", cmap="viridis",
                         vmin=0.0, vmax=0.5)
     ax.set_yscale("log")
     ax.set_xlabel("Temperature T [K]")
-    ax.set_ylabel("Readout integration time t [s]")
-    cbar = fig.colorbar(pcm, ax=ax)
-    cbar.set_label(r"$P_{\mathrm{err}}(t,T,A)$")
-
-    # contour at a "useful" error level
-    cs = ax.contour(T, t, Perr, levels=[0.05, 0.1, 0.25], colors="white",
+    cs = ax.contour(T, t, Perr, levels=[0.01, 0.05, 0.1, 0.25], colors="white",
                     linewidths=0.8)
     ax.clabel(cs, inline=True, fontsize=7, fmt="%.2f")
     ax.axvspan(1.0, 4.0, color="white", alpha=0.08)
-    ax.set_title("Fig G: readout-error phase diagram (t vs T) [CENTRAL figure]")
-    fig.tight_layout()
+    ax.set_title(title, fontsize=9)
+    return pcm, Perr
+
+
+def fig_G(p: Params):
+    T = np.linspace(0.1, 10.0, 220)
+    t = np.logspace(-9, -2, 220)  # 1 ns .. 10 ms
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.5), sharey=True)
+
+    # left: default (high barriers, window at ~5-9 K)
+    pcm1, Perr_default = _fig_G_panel(
+        ax1, T, t, p.DeltaU0, p.DeltaU1, p.eta0, p.eta1, p.A, p.Gamma_attempt,
+        r"$\Delta U_0$=6, $\Delta U_1$=4 meV (window at 5-9 K)")
+    ax1.set_ylabel("Readout integration time t [s]")
+
+    # right: small barriers, window in the 1-4 K focus band
+    pcm2, Perr_small = _fig_G_panel(
+        ax2, T, t, 1.5, 0.8, p.eta0, p.eta1, p.A, p.Gamma_attempt,
+        r"$\Delta U_0$=1.5, $\Delta U_1$=0.8 meV (window at 0.5-2 K)")
+
+    cbar = fig.colorbar(pcm2, ax=[ax1, ax2], shrink=0.85)
+    cbar.set_label(r"$P_{\mathrm{err}}(t,T,A)$")
+    fig.suptitle("Fig G: readout-error phase diagram [CENTRAL figure]", fontsize=11)
+    fig.subplots_adjust(left=0.07, right=0.88, top=0.90, bottom=0.12, wspace=0.08)
     fig.savefig(os.path.join(FIG_DIR, "figG_error_heatmap_time_temperature.png"), dpi=140)
     plt.close(fig)
 
-    # CSV: down-sample to keep the file readable
+    # CSV: down-sample to keep the file readable (default params only)
     rows = []
     for it in range(0, len(t), 4):
         for iT in range(0, len(T), 4):
-            rows.append([f"{t[it]:.6e}", f"{T[iT]:.5f}", f"{Perr[it, iT]:.6e}"])
+            rows.append([f"{t[it]:.6e}", f"{T[iT]:.5f}",
+                         f"{Perr_default[it, iT]:.6e}",
+                         f"{Perr_small[it, iT]:.6e}"])
     write_csv(os.path.join(DATA_DIR, "error_heatmap.csv"),
-              ["t_readout_s", "T_K", "P_err"], rows)
-    return T, t, Perr
+              ["t_readout_s", "T_K", "P_err_default", "P_err_small_barrier"], rows)
+    return T, t, Perr_default
 
 
 # --------------------------------------------------------------------------
@@ -424,6 +442,119 @@ def fig_J(p: Params):
 
 
 # --------------------------------------------------------------------------
+# Parameter dependence: how T* and F* depend on barrier gap, Gamma_attempt, A
+# --------------------------------------------------------------------------
+def fig_param_dependence(p: Params):
+    """Systematic sweep of T* vs key parameters (final report question 2)."""
+    T = np.linspace(0.1, 10.0, 2000)
+    t = p.t_readout
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+
+    # (a) T* vs barrier gap  (DeltaU0 fixed, vary DeltaU1)
+    ax = axes[0, 0]
+    gaps = np.linspace(0.3, 5.0, 50)
+    DeltaU0_fixed = 6.0
+    Topt_gap, Fopt_gap = [], []
+    for gap in gaps:
+        DU1 = DeltaU0_fixed - gap
+        if DU1 < 0:
+            Topt_gap.append(np.nan)
+            Fopt_gap.append(np.nan)
+            continue
+        G0 = kramers_rate(DeltaU0_fixed, p.eta0, p.A, T, p.Gamma_attempt)
+        G1 = kramers_rate(DU1, p.eta1, p.A, T, p.Gamma_attempt)
+        F = readout_fidelity(G0, G1, t)
+        i = int(np.argmax(F))
+        Topt_gap.append(T[i] if 0 < i < len(T) - 1 else np.nan)
+        Fopt_gap.append(F[i] if 0 < i < len(T) - 1 else np.nan)
+    ax.plot(gaps, Topt_gap, "o-", ms=3, color="tab:blue")
+    ax.set_xlabel(r"barrier gap $\Delta U_0 - \Delta U_1$ [meV]")
+    ax.set_ylabel(r"$T^*$ [K]")
+    ax.set_title(r"(a) $T^*$ vs barrier gap ($\Delta U_0$=6 meV)")
+    ax.axhspan(1, 4, color="gray", alpha=0.1)
+    ax.grid(True, alpha=0.25)
+
+    # (b) T* vs DeltaU0 (keeping gap = 2 meV fixed)
+    ax = axes[0, 1]
+    DU0s = np.linspace(1.0, 15.0, 50)
+    gap_fixed = 2.0
+    Topt_u0, Fopt_u0 = [], []
+    for du0 in DU0s:
+        du1 = du0 - gap_fixed
+        G0 = kramers_rate(du0, p.eta0, p.A, T, p.Gamma_attempt)
+        G1 = kramers_rate(du1, p.eta1, p.A, T, p.Gamma_attempt)
+        F = readout_fidelity(G0, G1, t)
+        i = int(np.argmax(F))
+        Topt_u0.append(T[i] if 0 < i < len(T) - 1 else np.nan)
+        Fopt_u0.append(F[i] if 0 < i < len(T) - 1 else np.nan)
+    ax.plot(DU0s, Topt_u0, "s-", ms=3, color="tab:red")
+    ax.set_xlabel(r"$\Delta U_0$ [meV]  (gap fixed at 2 meV)")
+    ax.set_ylabel(r"$T^*$ [K]")
+    ax.set_title(r"(b) $T^*$ vs absolute barrier height")
+    ax.axhspan(1, 4, color="gray", alpha=0.1)
+    ax.grid(True, alpha=0.25)
+
+    # (c) T* vs Gamma_attempt
+    ax = axes[1, 0]
+    Gatts = np.logspace(6, 11, 40)  # 1 MHz .. 100 GHz
+    Topt_ga, Fopt_ga = [], []
+    for ga in Gatts:
+        G0 = kramers_rate(p.DeltaU0, p.eta0, p.A, T, ga)
+        G1 = kramers_rate(p.DeltaU1, p.eta1, p.A, T, ga)
+        F = readout_fidelity(G0, G1, t)
+        i = int(np.argmax(F))
+        Topt_ga.append(T[i] if 0 < i < len(T) - 1 else np.nan)
+        Fopt_ga.append(F[i] if 0 < i < len(T) - 1 else np.nan)
+    ax.semilogx(Gatts, Topt_ga, "^-", ms=3, color="tab:green")
+    ax.set_xlabel(r"$\Gamma_{\mathrm{attempt}}$ [Hz]")
+    ax.set_ylabel(r"$T^*$ [K]")
+    ax.set_title(r"(c) $T^*$ vs attempt frequency")
+    ax.axhspan(1, 4, color="gray", alpha=0.1)
+    ax.grid(True, alpha=0.25)
+
+    # (d) T* vs drive amplitude A
+    ax = axes[1, 1]
+    As = np.linspace(0.0, 3.0, 40)
+    Topt_a, Fopt_a = [], []
+    for Aval in As:
+        G0 = kramers_rate(p.DeltaU0, p.eta0, Aval, T, p.Gamma_attempt)
+        G1 = kramers_rate(p.DeltaU1, p.eta1, Aval, T, p.Gamma_attempt)
+        F = readout_fidelity(G0, G1, t)
+        i = int(np.argmax(F))
+        Topt_a.append(T[i] if 0 < i < len(T) - 1 else np.nan)
+        Fopt_a.append(F[i] if 0 < i < len(T) - 1 else np.nan)
+    ax.plot(As, Topt_a, "D-", ms=3, color="tab:purple")
+    ax.set_xlabel("drive A [meV equivalent barrier lowering]")
+    ax.set_ylabel(r"$T^*$ [K]")
+    ax.set_title(r"(d) $T^*$ vs drive amplitude")
+    ax.axhspan(1, 4, color="gray", alpha=0.1)
+    ax.grid(True, alpha=0.25)
+
+    fig.suptitle("Parameter dependence of optimal temperature T*", fontsize=12)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(os.path.join(FIG_DIR, "figK_parameter_dependence.png"), dpi=140)
+    plt.close(fig)
+
+    # CSV
+    rows = []
+    for g, to, fo in zip(gaps, Topt_gap, Fopt_gap):
+        rows.append(["barrier_gap", f"{g:.3f}", f"{to}" if not np.isnan(to) else "nan",
+                      f"{fo}" if not np.isnan(fo) else "nan"])
+    for du0, to, fo in zip(DU0s, Topt_u0, Fopt_u0):
+        rows.append(["DeltaU0_sweep", f"{du0:.3f}", f"{to}" if not np.isnan(to) else "nan",
+                      f"{fo}" if not np.isnan(fo) else "nan"])
+    for ga, to, fo in zip(Gatts, Topt_ga, Fopt_ga):
+        rows.append(["Gamma_attempt", f"{ga:.3e}", f"{to}" if not np.isnan(to) else "nan",
+                      f"{fo}" if not np.isnan(fo) else "nan"])
+    for a, to, fo in zip(As, Topt_a, Fopt_a):
+        rows.append(["drive_A", f"{a:.3f}", f"{to}" if not np.isnan(to) else "nan",
+                      f"{fo}" if not np.isnan(fo) else "nan"])
+    write_csv(os.path.join(DATA_DIR, "parameter_dependence.csv"),
+              ["sweep_type", "param_value", "T_opt_K", "F_opt"], rows)
+
+
+# --------------------------------------------------------------------------
 # Final-report style summary printed to stdout
 # --------------------------------------------------------------------------
 def summarize(p: Params):
@@ -468,6 +599,7 @@ def main():
     fig_H(p)
     fig_I(p)
     fig_J(p)
+    fig_param_dependence(p)
     summarize(p)
 
 
